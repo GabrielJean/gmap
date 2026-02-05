@@ -1,0 +1,158 @@
+name: Build, Push, and Redeploy Container via Portainer
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+jobs:
+  build-push-redeploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: "tag:ci"
+
+      - name: Log in to registry
+        uses: docker/login-action@v3
+        with:
+          registry: gitea.docker-1.gwebs.ca
+          username: ${{ secrets.GITEA_REGISTRY_USER }}
+          password: ${{ secrets.GITEA_REGISTRY_PASS }}
+
+      - name: Install Ansible
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible
+
+      - name: Decrypt .env with Ansible Vault
+        env:
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ANSIBLE_VAULT_PASSWORD:-}" ]; then
+            echo "ANSIBLE_VAULT_PASSWORD is not set" >&2
+            exit 1
+          fi
+          printf '%s' "$ANSIBLE_VAULT_PASSWORD" > .vault_pass.txt
+          ansible-vault decrypt --vault-password-file .vault_pass.txt .env
+          rm -f .vault_pass.txt
+
+      - name: Build and push image, capture digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: gitea.docker-1.gwebs.ca/gabriel/gmap:latest
+
+      - name: Export image digest env
+        run: echo "IMAGE_DIGEST=${{ steps.build.outputs.digest }}" >> "$GITHUB_ENV"
+
+      - name: Recreate container on Portainer pinned to digest
+        shell: bash
+        env:
+          PORTAINER_URL: ${{ secrets.PORTAINER_URL }}
+          PORTAINER_API_KEY: ${{ secrets.PORTAINER_API_KEY }}
+          IMAGE_REPO: gitea.docker-1.gwebs.ca/gabriel/gmap
+          ENDPOINT_ID: "2"
+          CONTAINER_NAME: gmap
+          PORTAINER_REGISTRY_AUTH_B64: ${{ secrets.PORTAINER_REGISTRY_AUTH_B64 }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${IMAGE_DIGEST:-}" ]; then
+            echo "IMAGE_DIGEST is empty; build step may have failed to produce a digest." >&2
+            exit 1
+          fi
+
+          hdr=(-H "X-API-Key: $PORTAINER_API_KEY")
+          endpoint="$ENDPOINT_ID"
+          repo="$IMAGE_REPO"
+          digest="$IMAGE_DIGEST"
+          name="$CONTAINER_NAME"
+
+          # Resolve current container ID (exact name match)
+          cid=$(curl -fsSL "${hdr[@]}" \
+            "$PORTAINER_URL/api/endpoints/$endpoint/docker/containers/json?all=1" \
+            | jq -r --arg n "$name" '.[] | select(any(.Names[]; . == ("/"+$n))) | .Id' | head -n1)
+          if [ -z "${cid:-}" ]; then
+            echo "Container $name not found on endpoint $endpoint" >&2
+            exit 1
+          fi
+          echo "Found container: $cid"
+
+          # Fetch current container spec
+          spec=$(curl -fsSL "${hdr[@]}" "$PORTAINER_URL/api/endpoints/$endpoint/docker/containers/$cid/json")
+          cfg=$(jq '.Config' <<<"$spec")
+          host_cfg=$(jq '.HostConfig' <<<"$spec")
+
+          # Preserve network attachments
+          endpoints_json=$(jq -n --argjson nets "$(jq '.NetworkSettings.Networks|keys' <<<"$spec")" '$nets|reduce .[] as $n ({}; .[$n]={})')
+          networking=$(jq -n --argjson ep "$endpoints_json" '{EndpointsConfig:$ep}')
+
+          # Stop and remove old container
+          curl -fsS -X POST "${hdr[@]}" "$PORTAINER_URL/api/endpoints/$endpoint/docker/containers/$cid/stop" || true
+          curl -fsS -X DELETE "${hdr[@]}" "$PORTAINER_URL/api/endpoints/$endpoint/docker/containers/$cid?force=1"
+
+          # Pull the exact digest (URL-encode '@' to %40 for the API path)
+          auth_b64="${PORTAINER_REGISTRY_AUTH_B64:-e30=}"
+          from_image_encoded=$(printf '%s' "$repo@${digest}" | sed 's/@/%40/')
+          curl -fsS -X POST "${hdr[@]}" -H "X-Registry-Auth: $auth_b64" \
+            "$PORTAINER_URL/api/endpoints/$endpoint/docker/images/create?fromImage=$from_image_encoded"
+
+          # Create new container with same config but pinned image digest
+          create_payload=$(jq -n \
+            --arg img "$repo@${digest}" \
+            --argjson cfg "$cfg" \
+            --argjson host "$host_cfg" \
+            --argjson net "$networking" \
+            '$cfg + {Image:$img} + {HostConfig:$host} + {NetworkingConfig:$net}')
+
+          # Ensure no leftover container with the same name exists
+          existing_by_name=$(curl -fsSL "${hdr[@]}" \
+            "$PORTAINER_URL/api/endpoints/$endpoint/docker/containers/json?all=1" \
+            | jq -r --arg n "$name" '.[] | select(any(.Names[]; . == ("/"+$n))) | .Id' | head -n1)
+          if [ -n "${existing_by_name:-}" ]; then
+            curl -fsS -X DELETE "${hdr[@]}" "$PORTAINER_URL/api/endpoints/$endpoint/docker/containers/$existing_by_name?force=1" || true
+          fi
+
+          # Create container (Portainer may return 200 or 201)
+          create_url="$PORTAINER_URL/api/endpoints/$endpoint/docker/containers/create?name=$name"
+          http_code=$(curl -sS -o create.out -w "%{http_code}" -X POST "${hdr[@]}" -H "Content-Type: application/json" -d "$create_payload" "$create_url")
+          if [ "$http_code" = "409" ]; then
+            conflict_id=$(curl -fsSL "${hdr[@]}" \
+              "$PORTAINER_URL/api/endpoints/$endpoint/docker/containers/json?all=1" \
+              | jq -r --arg n "$name" '.[] | select(any(.Names[]; . == ("/"+$n))) | .Id' | head -n1)
+            if [ -n "${conflict_id:-}" ]; then
+              curl -fsS -X DELETE "${hdr[@]}" "$PORTAINER_URL/api/endpoints/$endpoint/docker/containers/$conflict_id?force=1" || true
+            fi
+            http_code=$(curl -sS -o create.out -w "%{http_code}" -X POST "${hdr[@]}" -H "Content-Type: application/json" -d "$create_payload" "$create_url")
+          fi
+
+          if [ "$http_code" != "201" ] && [ "$http_code" != "200" ]; then
+            echo "Container create failed (code=$http_code):" >&2
+            cat create.out >&2 || true
+            exit 1
+          fi
+
+          create_resp=$(cat create.out)
+          rm -f create.out || true
+
+          new_id=$(jq -r '.Id // .id // empty' <<<"$create_resp")
+          if [ -z "${new_id:-}" ]; then
+            echo "Could not parse new container ID from create response:" >&2
+            echo "$create_resp" >&2
+            exit 1
+          fi
+
+          # Start it by id
+          curl -fsS -X POST "${hdr[@]}" \
+            "$PORTAINER_URL/api/endpoints/$endpoint/docker/containers/$new_id/start"
+
+          echo "Recreated and started container $name with image $repo@${digest} (id=$new_id)"
