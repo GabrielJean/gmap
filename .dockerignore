@@ -1,0 +1,42 @@
+# Git
+.git
+.gitignore
+.github
+.gitea
+
+# Documentation
+README.md
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Data and logs
+data_runs/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build files
+.vault_pass.txt
+
+# Docker
+docker-compose.yml
+Dockerfile
+.dockerignore
+
+# Test outputs
+*.png
+*.json
