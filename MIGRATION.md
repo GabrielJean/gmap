@@ -29,6 +29,17 @@ HomeLab/Docker/gmap/
 └── .env                (encrypted with Ansible Vault)
 ```
 
+**Steps to Update HomeLab Repository:**
+1. Backup the current `HomeLab/Docker/gmap/.env` file (it's needed!)
+2. Delete these files from `HomeLab/Docker/gmap/`:
+   - `Dockerfile`
+   - `gmap.py`
+   - `requirements.txt`
+   - `run.sh`
+3. Replace `docker-compose.yml` with the content from `docker-compose.homelab.yml` in this repo
+4. Keep the `.env` file (no changes needed)
+5. Test by running: `docker-compose pull && docker-compose up -d`
+
 **Files to remove from HomeLab:**
 - `Dockerfile`
 - `gmap.py`
