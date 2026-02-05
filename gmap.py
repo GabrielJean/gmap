@@ -9,7 +9,7 @@ How to use with Chrome DevTools selectors:
 Set your URLs in `.env` (key `URLS`) as a JSON array or comma-separated list, then run:
 	pip install playwright
 	playwright install chromium
-	python test.py
+	python gmap.py
 
 Outputs consistent fields to scrape_output.json.
 """

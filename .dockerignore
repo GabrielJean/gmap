@@ -6,6 +6,7 @@
 
 # Documentation
 README.md
+MIGRATION.md
 
 # Python
 __pycache__/
@@ -34,8 +35,7 @@ Thumbs.db
 
 # Docker
 docker-compose.yml
-Dockerfile
-.dockerignore
+docker-compose.homelab.yml
 
 # Test outputs
 *.png
