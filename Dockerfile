@@ -21,4 +21,7 @@ COPY run.sh ./
 
 RUN chmod +x run.sh
 
+# Runtime configuration (decrypted by CI before docker build)
+COPY .env ./
+
 ENTRYPOINT ["./run.sh"]

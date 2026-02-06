@@ -51,6 +51,11 @@ jobs:
           push: true
           tags: gitea.docker-1.gwebs.ca/gabriel/gmap:latest
 
+      - name: Cleanup decrypted .env
+        if: always()
+        run: |
+          rm -f .env || true
+
       - name: Export image digest env
         run: echo "IMAGE_DIGEST=${{ steps.build.outputs.digest }}" >> "$GITHUB_ENV"
 
