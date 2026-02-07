@@ -6,8 +6,8 @@ This document explains the migration of the gmap application from the HomeLab re
 
 ### GabrielJean/gmap Repository (this repo)
 This repository now contains:
-- Application code (`gmap.py`)
-- Docker configuration (`Dockerfile`, `requirements.txt`, `run.sh`)
+- Application code (`src/gmap/scraper.py`, `src/gmap/web_app.py`)
+- Docker configuration (`Dockerfile`, `requirements.txt`)
 - CI/CD pipeline (`.gitea/workflows/buildandpush.yml`)
 - Environment configuration (`.env` - encrypted with Ansible Vault)
 - Local development docker-compose (`docker-compose.yml`)
@@ -33,18 +33,18 @@ HomeLab/Docker/gmap/
 1. Backup the current `HomeLab/Docker/gmap/.env` file (it's needed!)
 2. Delete these files from `HomeLab/Docker/gmap/`:
    - `Dockerfile`
-   - `gmap.py`
+   - `src/gmap/scraper.py`
    - `requirements.txt`
-   - `run.sh`
+   - `src/gmap/app.py`
 3. Replace `docker-compose.yml` with the content from `docker-compose.homelab.yml` in this repo
 4. Keep the `.env` file (no changes needed)
 5. Test by running: `docker-compose pull && docker-compose up -d`
 
 **Files to remove from HomeLab:**
 - `Dockerfile`
-- `gmap.py`
+- `src/gmap/scraper.py`
 - `requirements.txt`
-- `run.sh`
+- `src/gmap/app.py`
 
 These files are now maintained in this repository and automatically built/deployed via CI/CD.
 

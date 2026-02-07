@@ -20,9 +20,14 @@ This repository contains the gmap web scraping application, which uses Playwrigh
 ├── README.md                  # Project documentation
 ├── docker-compose.homelab.yml # Template for HomeLab repository
 ├── docker-compose.yml         # Local development compose file
-├── gmap.py                    # Main application (831 lines)
+├── src/
+│   └── gmap/
+│       ├── __init__.py
+│       ├── app.py             # Container entrypoint
+│       ├── scraper.py         # Main application (831 lines)
+│       ├── web_app.py         # Web dashboard
+│       └── templates/
 ├── requirements.txt           # Python dependencies
-└── run.sh                     # Container entrypoint script
 ```
 
 ## CI/CD Pipeline
@@ -43,7 +48,7 @@ The Gitea Actions workflow (`.gitea/workflows/buildandpush.yml`) automatically:
 To complete the migration, update the HomeLab repository:
 
 1. In `HomeLab/Docker/gmap/`:
-   - Delete: `Dockerfile`, `gmap.py`, `requirements.txt`, `run.sh`
+   - Delete: `Dockerfile`, `src/gmap/scraper.py`, `requirements.txt`, `src/gmap/app.py`
    - Keep: `.env` (no changes needed)
    - Update: `docker-compose.yml` with content from `docker-compose.homelab.yml`
 
@@ -57,7 +62,7 @@ To complete the migration, update the HomeLab repository:
 ## Required Secrets (Gitea Repository)
 The following secrets must be configured in the Gitea repository settings:
 - `TS_OAUTH_CLIENT_ID` - Tailscale OAuth client ID
-- `TS_OAUTH_SECRET` - Tailscale OAuth secret  
+- `TS_OAUTH_SECRET` - Tailscale OAuth secret
 - `GITEA_REGISTRY_USER` - Gitea registry username
 - `GITEA_REGISTRY_PASS` - Gitea registry password
 - `ANSIBLE_VAULT_PASSWORD` - Password for decrypting .env
