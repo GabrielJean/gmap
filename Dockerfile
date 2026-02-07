@@ -3,6 +3,8 @@ FROM mcr.microsoft.com/playwright/python:v1.45.0-jammy
 
 WORKDIR /app
 
+ENV PYTHONPATH=/app/src
+
 # System dependencies for Chromium (most already present in the base image; kept explicit for clarity)
 RUN apt-get update \
 	&& DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
@@ -16,12 +18,7 @@ RUN pip install --no-cache-dir -r requirements.txt \
 	&& python -m playwright install chromium
 
 # Application code
-COPY gmap.py ./
-COPY web_app.py ./
-COPY templates ./templates
-COPY run.sh ./
-
-RUN chmod +x run.sh
+COPY src ./src
 
 # Runtime configuration (decrypted by CI before docker build)
 COPY .env ./
@@ -29,4 +26,4 @@ COPY .env ./
 # Expose web dashboard port
 EXPOSE 5000
 
-ENTRYPOINT ["./run.sh"]
+ENTRYPOINT ["python", "-m", "gmap.app"]

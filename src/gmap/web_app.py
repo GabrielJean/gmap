@@ -183,7 +183,7 @@ def serve_image(png_path: str):
 def api_config():
     """Return configured URLs from .env file."""
     try:
-        # Load URLs from .env (same method used by gmap.py)
+        # Load URLs from .env (same method used by scraper)
         env_path = Path(".env")
         if not env_path.exists():
             return jsonify({"error": "Configuration file not found"}), 404

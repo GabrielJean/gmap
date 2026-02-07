@@ -2,6 +2,12 @@
 
 A web scraping application that uses Playwright to scrape dynamic web pages on a scheduled basis and displays the data through a web dashboard.
 
+Source code lives in `src/gmap/` with:
+- `src/gmap/app.py` as the container entrypoint
+- `src/gmap/scraper.py` for scraping
+- `src/gmap/web_app.py` for the Flask dashboard
+- `src/gmap/templates/` for HTML
+
 ## Features
 
 - Scrapes a list of URLs using Playwright with Chromium
@@ -14,7 +20,7 @@ A web scraping application that uses Playwright to scrape dynamic web pages on a
 
 The application now includes a web dashboard accessible on port 5000 that displays:
 
-- **Interactive traffic graphs**: 
+- **Interactive traffic graphs**:
   - Real-time line charts showing duration over time
   - Median and 95th percentile reference lines
   - Zoom, pan, and hover capabilities for detailed analysis
