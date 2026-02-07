@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ name }} - {{ direction }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js" charset="utf-8"></script>
+    <style>
+        :root {
+            --bg: #f6f6f2;
+            --panel: #ffffff;
+            --ink: #0f172a;
+            --muted: #6b7280;
+            --accent: #0ea5a4;
+            --accent-dark: #0f766e;
+            --border: #e5e7eb;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Space Grotesk", sans-serif;
+            color: var(--ink);
+            background: radial-gradient(circle at top left, #e0f2f1 0%, #f6f6f2 45%, #fefce8 100%);
+            min-height: 100vh;
+        }
+
+        .header {
+            padding: 2.5rem 1.5rem 1.5rem;
+        }
+
+        .header-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.75rem 2rem;
+            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+        }
+
+        .back-link {
+            color: var(--accent-dark);
+            text-decoration: none;
+            font-weight: 600;
+            display: inline-block;
+            margin-bottom: 0.75rem;
+        }
+
+        .title {
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .subtitle {
+            color: var(--muted);
+            margin-top: 0.35rem;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .container {
+            max-width: 1320px;
+            margin: 0 auto;
+            padding: 0 1.5rem 3rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+
+        .stat-card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+        }
+
+        .stat-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--muted);
+        }
+
+        .stat-value {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-top: 0.35rem;
+        }
+
+        .chart-section {
+            margin-top: 2rem;
+        }
+
+        .chart-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.6rem;
+        }
+
+        .chart-card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.05);
+            min-height: 320px;
+            display: flex;
+            align-items: center;
+        }
+
+        .chart-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 1.75rem;
+            justify-items: center;
+        }
+
+        .chart-block {
+            width: min(1200px, 100%);
+        }
+
+        .chart-card .js-plotly-plot {
+            width: 100%;
+        }
+
+        .explain-card {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            color: var(--ink);
+        }
+
+        .explain-title {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .explain-list {
+            margin-top: 0.75rem;
+            color: var(--muted);
+        }
+
+        .explain-list li {
+            margin: 0.35rem 0;
+        }
+
+        .placeholder {
+            color: var(--muted);
+            text-align: center;
+            padding: 2rem;
+        }
+
+        @media (max-width: 640px) {
+            .header-inner {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-inner">
+            <a class="back-link" href="/">Back to dashboard</a>
+            <div class="title">{{ name }}</div>
+            <div class="subtitle">{{ direction }}</div>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="stats-grid" id="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Loading</div>
+                <div class="stat-value">...</div>
+            </div>
+        </section>
+
+        <section class="chart-section">
+            <div class="explain-card" id="commute-explain">
+                <div class="explain-title">How this impacts your commute (7-9 AM, 3-5 PM)</div>
+                <div>Loading commute summary...</div>
+            </div>
+        </section>
+
+        <section class="chart-section">
+            <div class="explain-card" id="commute-analysis">
+                <div class="explain-title">Commute impact analysis</div>
+                <div>Loading analysis...</div>
+            </div>
+        </section>
+
+        <section class="chart-section">
+            <div class="chart-grid">
+                <div class="chart-block">
+                    <div class="chart-title">Duration over time</div>
+                    <div class="chart-card" id="chart-timeseries"></div>
+                </div>
+                <div class="chart-block">
+                    <div class="chart-title">Commute windows: 7-9 AM vs 3-5 PM</div>
+                    <div class="chart-card" id="chart-commute"></div>
+                </div>
+                <div class="chart-block">
+                    <div class="chart-title">Daily median (all samples)</div>
+                    <div class="chart-card" id="chart-daily"></div>
+                </div>
+                <div class="chart-block">
+                    <div class="chart-title">Hour of day median</div>
+                    <div class="chart-card" id="chart-hourly"></div>
+                </div>
+                <div class="chart-block">
+                    <div class="chart-title">Weekday median (commute windows only)</div>
+                    <div class="chart-card" id="chart-weekday"></div>
+                </div>
+                <div class="chart-block">
+                    <div class="chart-title">Duration distribution</div>
+                    <div class="chart-card" id="chart-hist"></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const routeInfo = {{ data | tojson }};
+        const routeName = {{ name | tojson }};
+        const routeDirection = {{ direction | tojson }};
+
+        function formatTimestamp(timestamp) {
+            try {
+                const date = new Date(timestamp);
+                return date.toLocaleString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            } catch {
+                return timestamp.split('T')[0];
+            }
+        }
+
+        function calculateMedian(arr) {
+            if (!arr.length) return null;
+            const sorted = [...arr].sort((a, b) => a - b);
+            const mid = Math.floor(sorted.length / 2);
+            return sorted.length % 2 === 0
+                ? (sorted[mid - 1] + sorted[mid]) / 2
+                : sorted[mid];
+        }
+
+        function calculatePercentile(arr, percentile) {
+            if (!arr.length) return null;
+            const sorted = [...arr].sort((a, b) => a - b);
+            const index = (percentile / 100) * (sorted.length - 1);
+            const lower = Math.floor(index);
+            const upper = Math.ceil(index);
+            const weight = index % 1;
+
+            if (lower === upper) {
+                return sorted[lower];
+            }
+
+            return sorted[lower] * (1 - weight) + sorted[upper] * weight;
+        }
+
+        function downsample(data, maxPoints) {
+            if (data.length <= maxPoints) return data;
+            const step = Math.ceil(data.length / maxPoints);
+            return data.filter((_, index) => index % step === 0);
+        }
+
+        function renderStats(stats) {
+            const grid = document.getElementById('stats-grid');
+            grid.innerHTML = stats.map(stat => `
+                <div class="stat-card">
+                    <div class="stat-label">${stat.label}</div>
+                    <div class="stat-value">${stat.value}</div>
+                </div>
+            `).join('');
+        }
+
+        function renderPlaceholder(id, message) {
+            const el = document.getElementById(id);
+            el.innerHTML = `<div class="placeholder">${message}</div>`;
+        }
+
+        function renderCommuteExplain(summary) {
+            const el = document.getElementById('commute-explain');
+            el.innerHTML = `
+                <div class="explain-title">How this impacts your commute (7-9 AM, 3-5 PM)</div>
+                <div>${summary.headline}</div>
+                <ul class="explain-list">
+                    ${summary.details.map(item => `<li>${item}</li>`).join('')}
+                </ul>
+            `;
+        }
+
+        function renderCommuteAnalysis(summary) {
+            const el = document.getElementById('commute-analysis');
+            el.innerHTML = `
+                <div class="explain-title">Commute impact analysis</div>
+                <div>${summary.headline}</div>
+                <ul class="explain-list">
+                    ${summary.details.map(item => `<li>${item}</li>`).join('')}
+                </ul>
+            `;
+        }
+
+        function buildDailyMedians(rows) {
+            const bucket = {};
+            rows.forEach(row => {
+                const dateKey = row.timestamp.toISOString().slice(0, 10);
+                if (!bucket[dateKey]) {
+                    bucket[dateKey] = [];
+                }
+                bucket[dateKey].push(row.duration);
+            });
+
+            const dates = [];
+            const medians = [];
+            Object.keys(bucket).sort().forEach(dateKey => {
+                dates.push(dateKey);
+                medians.push(calculateMedian(bucket[dateKey]));
+            });
+
+            return { dates, medians };
+        }
+
+        function buildHourlyMedians(rows) {
+            const bucket = Array.from({ length: 24 }, () => []);
+            rows.forEach(row => {
+                bucket[row.timestamp.getHours()].push(row.duration);
+            });
+            const labels = bucket.map((_, idx) => `${idx}`.padStart(2, '0'));
+            const medians = bucket.map(values => calculateMedian(values));
+            return { labels, medians };
+        }
+
+        function buildWeekdayMedians(rows) {
+            const bucket = Array.from({ length: 7 }, () => []);
+            rows.forEach(row => {
+                bucket[row.timestamp.getDay()].push(row.duration);
+            });
+            const labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const medians = bucket.map(values => calculateMedian(values));
+            return { labels, medians };
+        }
+
+        function buildCommuteWeekdayMedians(rows) {
+            const bucket = Array.from({ length: 7 }, () => []);
+            rows.forEach(row => {
+                const hour = row.timestamp.getHours();
+                if ((hour >= 7 && hour < 9) || (hour >= 15 && hour < 17)) {
+                    bucket[row.timestamp.getDay()].push(row.duration);
+                }
+            });
+            const labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const medians = bucket.map(values => calculateMedian(values));
+            return { labels, medians };
+        }
+
+        function commuteSummary(morningValues, afternoonValues) {
+            const morningMedian = calculateMedian(morningValues);
+            const afternoonMedian = calculateMedian(afternoonValues);
+            const bestMedian = calculateMedian([...morningValues, ...afternoonValues]);
+
+            if (!morningValues.length && !afternoonValues.length) {
+                return {
+                    headline: 'No commute window samples yet. Your commute insights will appear after a few runs.',
+                    details: [
+                        'We only evaluate 7-9 AM and 3-5 PM for this summary.',
+                        'Check back after the scraper runs during commute hours.'
+                    ]
+                };
+            }
+
+            const morningText = morningValues.length
+                ? `Morning (7-9 AM) median: ${morningMedian.toFixed(1)} min from ${morningValues.length} samples.`
+                : 'Morning (7-9 AM) has no samples yet.';
+            const afternoonText = afternoonValues.length
+                ? `Afternoon (3-5 PM) median: ${afternoonMedian.toFixed(1)} min from ${afternoonValues.length} samples.`
+                : 'Afternoon (3-5 PM) has no samples yet.';
+            const differenceText = morningValues.length && afternoonValues.length
+                ? `Afternoon is ${Math.abs(afternoonMedian - morningMedian).toFixed(1)} min ${afternoonMedian > morningMedian ? 'slower' : 'faster'} than morning.`
+                : 'Compare both windows once each has samples.';
+
+            return {
+                headline: `Typical commute time right now: ${bestMedian ? bestMedian.toFixed(1) : 'N/A'} minutes.`,
+                details: [morningText, afternoonText, differenceText]
+            };
+        }
+
+        function commuteAnalysis({
+            commuteValues,
+            morningValues,
+            afternoonValues,
+            offpeakValues,
+            spikeTimestamps,
+            bestWindow
+        }) {
+            if (!commuteValues.length) {
+                return {
+                    headline: 'No commute-window samples yet to analyze impact.',
+                    details: [
+                        'We only evaluate 7-9 AM and 3-5 PM for this analysis.',
+                        'Check back after more commute-hour runs.'
+                    ]
+                };
+            }
+
+            const commuteMedian = calculateMedian(commuteValues);
+            const commuteP90 = calculatePercentile(commuteValues, 90);
+            const offpeakMedian = offpeakValues.length ? calculateMedian(offpeakValues) : null;
+
+            const morningMedian = morningValues.length ? calculateMedian(morningValues) : null;
+            const afternoonMedian = afternoonValues.length ? calculateMedian(afternoonValues) : null;
+            let recommendation = 'Not enough data to recommend a window.';
+            if (morningMedian !== null && afternoonMedian !== null) {
+                recommendation = morningMedian <= afternoonMedian
+                    ? `Best bet: Morning commute (7-9 AM) is typically ${
+                        (afternoonMedian - morningMedian).toFixed(1)
+                    } min faster.`
+                    : `Best bet: Afternoon commute (3-5 PM) is typically ${
+                        (morningMedian - afternoonMedian).toFixed(1)
+                    } min faster.`;
+            }
+
+            const spikeCount = spikeTimestamps.length;
+            const lastSpike = spikeCount ? formatTimestamp(spikeTimestamps[spikeCount - 1].toISOString()) : 'None';
+            const spikeText = spikeCount
+                ? `${spikeCount} commute spikes detected (last: ${lastSpike}).`
+                : 'No commute spikes detected in this dataset.';
+
+            const peakVsOffpeak = offpeakMedian !== null
+                ? `Commute windows are about ${(commuteMedian - offpeakMedian).toFixed(1)} min ${
+                    commuteMedian > offpeakMedian ? 'slower' : 'faster'
+                } than off-peak.`
+                : 'Off-peak comparison will appear once off-peak samples exist.';
+
+            const bestWindowText = bestWindow
+                ? `Best time to leave: ${bestWindow.label} (median ${bestWindow.median.toFixed(1)} min across ${bestWindow.count} samples).`
+                : 'Best time to leave needs more commute samples.';
+
+            return {
+                headline: `Typical commute time: ${commuteMedian.toFixed(1)} min (p90: ${
+                    commuteP90 ? commuteP90.toFixed(1) : 'N/A'
+                } min).`,
+                details: [
+                    peakVsOffpeak,
+                    recommendation,
+                    bestWindowText,
+                    spikeText
+                ]
+            };
+        }
+
+        function bestCommuteWindow(rows) {
+            const buckets = {
+                morning: { label: '7-8 AM', start: 7, end: 8, values: [] },
+                midMorning: { label: '8-9 AM', start: 8, end: 9, values: [] },
+                afternoon: { label: '3-4 PM', start: 15, end: 16, values: [] },
+                lateAfternoon: { label: '4-5 PM', start: 16, end: 17, values: [] }
+            };
+
+            rows.forEach(row => {
+                const hour = row.timestamp.getHours();
+                for (const bucket of Object.values(buckets)) {
+                    if (hour >= bucket.start && hour < bucket.end) {
+                        bucket.values.push(row.duration);
+                    }
+                }
+            });
+
+            const scored = Object.values(buckets)
+                .map(bucket => ({
+                    label: bucket.label,
+                    median: calculateMedian(bucket.values),
+                    count: bucket.values.length
+                }))
+                .filter(bucket => bucket.median !== null && bucket.count >= 5)
+                .sort((a, b) => (a.median ?? Infinity) - (b.median ?? Infinity));
+
+            return scored.length ? scored[0] : null;
+        }
+
+        function chartTheme() {
+            return {
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: { family: 'Space Grotesk, sans-serif', size: 12, color: '#0f172a' },
+                hoverlabel: {
+                    bgcolor: '#0f172a',
+                    bordercolor: '#0f172a',
+                    font: { color: '#f8fafc', size: 12 }
+                },
+                margin: { l: 56, r: 20, t: 18, b: 44 },
+                height: 300
+            };
+        }
+
+        function chartConfig() {
+            return { responsive: true, displayModeBar: false };
+        }
+
+        async function loadRoute() {
+            try {
+                const response = await fetch(`/api/data/${routeInfo.csv_path}`);
+                const data = await response.json();
+
+                if (!data.length) {
+                    renderPlaceholder('chart-timeseries', 'No data available yet.');
+                    renderPlaceholder('chart-commute', 'No data available yet.');
+                    renderPlaceholder('chart-daily', 'No data available yet.');
+                    renderPlaceholder('chart-hourly', 'No data available yet.');
+                    renderPlaceholder('chart-weekday', 'No data available yet.');
+                    renderPlaceholder('chart-hist', 'No data available yet.');
+                    renderStats([
+                        { label: 'Total records', value: 0 }
+                    ]);
+                    renderCommuteExplain({
+                        headline: 'No commute window samples yet. Your commute insights will appear after a few runs.',
+                        details: [
+                            'We only evaluate 7-9 AM and 3-5 PM for this summary.',
+                            'Check back after the scraper runs during commute hours.'
+                        ]
+                    });
+                    renderCommuteAnalysis({
+                        headline: 'No commute-window samples yet to analyze impact.',
+                        details: [
+                            'We only evaluate 7-9 AM and 3-5 PM for this analysis.',
+                            'Check back after more commute-hour runs.'
+                        ]
+                    });
+                    return;
+                }
+
+                const parsed = data.map(row => {
+                    const duration = parseFloat(row.duration_minutes);
+                    const timestamp = new Date(row.timestamp_local);
+                    return {
+                        duration,
+                        timestamp
+                    };
+                }).filter(row => !Number.isNaN(row.duration) && !Number.isNaN(row.timestamp.getTime()));
+
+                if (!parsed.length) {
+                    renderPlaceholder('chart-timeseries', 'No valid data points.');
+                    renderPlaceholder('chart-commute', 'No valid data points.');
+                    renderPlaceholder('chart-daily', 'No valid data points.');
+                    renderPlaceholder('chart-hourly', 'No valid data points.');
+                    renderPlaceholder('chart-weekday', 'No valid data points.');
+                    renderPlaceholder('chart-hist', 'No valid data points.');
+                    renderStats([
+                        { label: 'Total records', value: 0 }
+                    ]);
+                    renderCommuteExplain({
+                        headline: 'No commute window samples yet. Your commute insights will appear after a few runs.',
+                        details: [
+                            'We only evaluate 7-9 AM and 3-5 PM for this summary.',
+                            'Check back after the scraper runs during commute hours.'
+                        ]
+                    });
+                    renderCommuteAnalysis({
+                        headline: 'No commute-window samples yet to analyze impact.',
+                        details: [
+                            'We only evaluate 7-9 AM and 3-5 PM for this analysis.',
+                            'Check back after more commute-hour runs.'
+                        ]
+                    });
+                    return;
+                }
+
+                const durations = parsed.map(row => row.duration);
+                const latest = parsed[parsed.length - 1];
+                const first = parsed[0];
+                const median = calculateMedian(durations);
+                const p90 = calculatePercentile(durations, 90);
+                const min = Math.min(...durations);
+                const max = Math.max(...durations);
+
+                const morning = parsed.filter(row => {
+                    const hour = row.timestamp.getHours();
+                    return hour >= 7 && hour < 9;
+                }).map(row => row.duration);
+
+                const afternoon = parsed.filter(row => {
+                    const hour = row.timestamp.getHours();
+                    return hour >= 15 && hour < 17;
+                }).map(row => row.duration);
+
+                const commuteRows = parsed.filter(row => {
+                    const hour = row.timestamp.getHours();
+                    return (hour >= 7 && hour < 9) || (hour >= 15 && hour < 17);
+                });
+                const commuteValues = commuteRows.map(row => row.duration);
+                const offpeakValues = parsed.filter(row => {
+                    const hour = row.timestamp.getHours();
+                    return hour < 7 || (hour >= 9 && hour < 15) || hour >= 17;
+                }).map(row => row.duration);
+
+                const spikeThreshold = calculatePercentile(commuteValues, 95);
+                const spikeTimestamps = spikeThreshold === null
+                    ? []
+                    : commuteRows.filter(row => row.duration >= spikeThreshold).map(row => row.timestamp);
+
+                const bestWindow = bestCommuteWindow(commuteRows);
+
+                renderCommuteExplain(commuteSummary(morning, afternoon));
+                renderCommuteAnalysis(commuteAnalysis({
+                    commuteValues,
+                    morningValues: morning,
+                    afternoonValues: afternoon,
+                    offpeakValues,
+                    spikeTimestamps,
+                    bestWindow
+                }));
+
+                renderStats([
+                    { label: 'Total records', value: parsed.length },
+                    { label: 'First seen', value: formatTimestamp(first.timestamp.toISOString()) },
+                    { label: 'Latest update', value: formatTimestamp(latest.timestamp.toISOString()) },
+                    { label: 'Median (min)', value: median ? median.toFixed(1) : 'N/A' },
+                    { label: '90th percentile', value: p90 ? p90.toFixed(1) : 'N/A' },
+                    { label: 'Range (min)', value: `${min.toFixed(1)} - ${max.toFixed(1)}` },
+                    { label: 'Morning median', value: morning.length ? calculateMedian(morning).toFixed(1) : 'N/A' },
+                    { label: 'Afternoon median', value: afternoon.length ? calculateMedian(afternoon).toFixed(1) : 'N/A' }
+                ]);
+
+                const downsampled = downsample(parsed, 1500);
+
+                const baseLayout = chartTheme();
+                const baseConfig = chartConfig();
+
+                Plotly.newPlot('chart-timeseries', [
+                    {
+                        x: downsampled.map(row => row.timestamp),
+                        y: downsampled.map(row => row.duration),
+                        type: 'scatter',
+                        mode: 'lines',
+                        line: { color: '#0f766e', width: 2 }
+                    }
+                ], {
+                    ...baseLayout,
+                    xaxis: { title: 'Date', automargin: true },
+                    yaxis: { title: 'Minutes', automargin: true },
+                    hovermode: 'x unified'
+                }, baseConfig);
+
+                Plotly.newPlot('chart-commute', [
+                    {
+                        x: ['7-9 AM', '3-5 PM'],
+                        y: [
+                            morning.length ? calculateMedian(morning) : null,
+                            afternoon.length ? calculateMedian(afternoon) : null
+                        ],
+                        type: 'bar',
+                        marker: { color: ['#f59e0b', '#8b5cf6'] },
+                        text: [
+                            morning.length ? `${calculateMedian(morning).toFixed(1)} min` : 'N/A',
+                            afternoon.length ? `${calculateMedian(afternoon).toFixed(1)} min` : 'N/A'
+                        ],
+                        textposition: 'auto'
+                    }
+                ], {
+                    ...baseLayout,
+                    yaxis: { title: 'Median minutes', automargin: true }
+                }, baseConfig);
+
+                const daily = buildDailyMedians(parsed);
+                Plotly.newPlot('chart-daily', [
+                    {
+                        x: daily.dates,
+                        y: daily.medians,
+                        type: 'scatter',
+                        mode: 'lines+markers',
+                        line: { color: '#0284c7', width: 2 },
+                        marker: { size: 5 }
+                    }
+                ], {
+                    ...baseLayout,
+                    xaxis: { title: 'Day', automargin: true },
+                    yaxis: { title: 'Median minutes', automargin: true }
+                }, baseConfig);
+
+                const hourly = buildHourlyMedians(parsed);
+                Plotly.newPlot('chart-hourly', [
+                    {
+                        x: hourly.labels,
+                        y: hourly.medians,
+                        type: 'bar',
+                        marker: { color: '#14b8a6' }
+                    }
+                ], {
+                    ...baseLayout,
+                    xaxis: { title: 'Hour', automargin: true },
+                    yaxis: { title: 'Median minutes', automargin: true }
+                }, baseConfig);
+
+                const weekday = buildCommuteWeekdayMedians(parsed);
+                Plotly.newPlot('chart-weekday', [
+                    {
+                        x: weekday.labels,
+                        y: weekday.medians,
+                        type: 'bar',
+                        marker: { color: '#f97316' }
+                    }
+                ], {
+                    ...baseLayout,
+                    xaxis: { title: 'Weekday', automargin: true },
+                    yaxis: { title: 'Median minutes', automargin: true }
+                }, baseConfig);
+
+                Plotly.newPlot('chart-hist', [
+                    {
+                        x: durations,
+                        type: 'histogram',
+                        marker: { color: '#64748b' }
+                    }
+                ], {
+                    ...baseLayout,
+                    xaxis: { title: 'Minutes', automargin: true },
+                    yaxis: { title: 'Count', automargin: true }
+                }, baseConfig);
+            } catch (error) {
+                renderPlaceholder('chart-timeseries', `Error loading data: ${error.message}`);
+                renderPlaceholder('chart-commute', `Error loading data: ${error.message}`);
+                renderPlaceholder('chart-daily', `Error loading data: ${error.message}`);
+                renderPlaceholder('chart-hourly', `Error loading data: ${error.message}`);
+                renderPlaceholder('chart-weekday', `Error loading data: ${error.message}`);
+                renderPlaceholder('chart-hist', `Error loading data: ${error.message}`);
+                renderStats([
+                    { label: 'Error', value: error.message }
+                ]);
+                renderCommuteExplain({
+                    headline: 'Unable to load commute summary.',
+                    details: ['Check the logs for more detail.']
+                });
+                renderCommuteAnalysis({
+                    headline: 'Unable to load commute analysis.',
+                    details: ['Check the logs for more detail.']
+                });
+            }
+        }
+
+        loadRoute();
+    </script>
+</body>
+</html>

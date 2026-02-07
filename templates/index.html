@@ -4,8 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GMap Traffic Dashboard</title>
-    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js" charset="utf-8"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg: #f6f6f2;
+            --panel: #ffffff;
+            --ink: #0f172a;
+            --muted: #6b7280;
+            --accent: #0ea5a4;
+            --accent-dark: #0f766e;
+            --border: #e5e7eb;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -13,294 +25,179 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: #f5f5f5;
-            color: #333;
-            line-height: 1.6;
+            font-family: "Space Grotesk", sans-serif;
+            color: var(--ink);
+            background: radial-gradient(circle at top left, #e0f2f1 0%, #f6f6f2 45%, #fefce8 100%);
+            min-height: 100vh;
         }
 
         .header {
-            background: linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);
-            color: white;
-            padding: 2rem;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 2.5rem 1.5rem 1.5rem;
         }
 
-        .header h1 {
+        .header-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.75rem 2rem;
+            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+        }
+
+        .title {
             font-size: 2rem;
-            margin-bottom: 0.5rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
         }
 
-        .header p {
-            opacity: 0.9;
+        .subtitle {
+            color: var(--muted);
+            margin-top: 0.35rem;
             font-size: 1rem;
         }
 
-        .container {
-            max-width: 1400px;
-            margin: 2rem auto;
-            padding: 0 1rem;
+        .header-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 1.25rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .pill {
+            background: #e0f2f1;
+            color: var(--accent-dark);
+            border-radius: 999px;
+            padding: 0.4rem 0.9rem;
+            font-weight: 600;
+            font-size: 0.9rem;
         }
 
         .refresh-btn {
-            background: white;
-            color: #0ea5e9;
+            background: var(--accent);
+            color: white;
             border: none;
-            padding: 0.7rem 1.5rem;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 1rem;
+            padding: 0.6rem 1.1rem;
+            border-radius: 10px;
             font-weight: 600;
-            margin-top: 1rem;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            transition: all 0.3s ease;
+            cursor: pointer;
         }
 
-        .refresh-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1.5rem 3rem;
         }
 
         .route-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
-            gap: 2rem;
-            margin-top: 2rem;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
         }
 
         .route-card {
-            background: white;
-            border-radius: 12px;
-            padding: 1.5rem;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
         }
 
-        .route-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 5px 20px rgba(0,0,0,0.12);
-        }
-
-        .route-header {
-            border-bottom: 2px solid #f0f0f0;
-            padding-bottom: 1rem;
-            margin-bottom: 1rem;
-        }
-
-        .route-name {
-            font-size: 1.5rem;
+        .route-title {
+            font-size: 1.2rem;
             font-weight: 700;
-            color: #0ea5e9;
-            margin-bottom: 0.3rem;
         }
 
         .route-direction {
-            font-size: 0.9rem;
-            color: #666;
-            font-weight: 500;
+            color: var(--muted);
+            font-size: 0.85rem;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.08em;
         }
 
         .route-stats {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 1rem;
-            margin: 1rem 0;
-        }
-
-        .commute-stats {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 1rem;
-            margin: 1rem 0;
-            padding: 1rem;
-            background: #f0f9ff;
-            border-radius: 8px;
-            border: 1px solid #0ea5e9;
-        }
-
-        .commute-stat {
-            text-align: center;
-        }
-
-        .commute-label {
-            font-size: 0.75rem;
-            color: #666;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 0.3rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.3rem;
-        }
-
-        .commute-time {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: #0ea5e9;
-        }
-
-        .commute-period {
-            font-size: 0.7rem;
-            color: #999;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.75rem;
         }
 
         .stat {
-            background: #f8f9fa;
-            padding: 0.8rem;
-            border-radius: 8px;
-            border-left: 3px solid #0ea5e9;
+            background: #f8fafc;
+            border-radius: 10px;
+            padding: 0.7rem;
+            border: 1px solid #eef2f7;
         }
 
         .stat-label {
-            font-size: 0.75rem;
-            color: #666;
+            font-size: 0.7rem;
+            color: var(--muted);
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 0.3rem;
+            letter-spacing: 0.08em;
         }
 
         .stat-value {
-            font-size: 1.1rem;
+            font-size: 1rem;
             font-weight: 600;
-            color: #333;
+            margin-top: 0.25rem;
         }
 
-        .graph-container {
-            margin: 1.5rem 0;
-            border-radius: 8px;
-            overflow: hidden;
-            background: white;
-            padding: 1rem;
-            min-height: 450px;
-            position: relative;
-        }
-
-        .graph-container canvas {
-            max-height: 100%;
-        }
-
-        .no-graph {
-            padding: 2rem;
+        .route-link {
+            margin-top: auto;
+            text-decoration: none;
             text-align: center;
-            color: #999;
-            font-style: italic;
-        }
-
-        .chart-loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: #0ea5e9;
-        }
-
-        .data-table-container {
-            margin-top: 1rem;
-            max-height: 300px;
-            overflow-y: auto;
-            border-radius: 8px;
-            border: 1px solid #e0e0e0;
-        }
-
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.85rem;
-        }
-
-        .data-table th {
-            background: #f8f9fa;
-            padding: 0.6rem;
-            text-align: left;
-            font-weight: 600;
-            position: sticky;
-            top: 0;
-            border-bottom: 2px solid #e0e0e0;
-        }
-
-        .data-table td {
-            padding: 0.6rem;
-            border-bottom: 1px solid #f0f0f0;
-        }
-
-        .data-table tr:hover {
-            background: #f8f9fa;
-        }
-
-        .toggle-table {
-            background: #0ea5e9;
+            background: var(--ink);
             color: white;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.9rem;
-            margin-top: 0.5rem;
-            transition: background 0.3s ease;
-        }
-
-        .toggle-table:hover {
-            background: #0284c7;
+            padding: 0.6rem 0.8rem;
+            border-radius: 10px;
+            font-weight: 600;
         }
 
         .empty-state {
-            text-align: center;
-            padding: 4rem 2rem;
-            color: #999;
-        }
-
-        .empty-state h2 {
-            font-size: 1.5rem;
-            margin-bottom: 1rem;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 2rem;
-            color: #0ea5e9;
-            font-size: 1.2rem;
-        }
-
-        .logs-section {
-            margin-top: 3rem;
-            background: white;
+            background: var(--panel);
+            border: 1px dashed var(--border);
             border-radius: 12px;
-            padding: 1.5rem;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            padding: 2rem;
+            text-align: center;
+            color: var(--muted);
         }
 
-        .logs-title {
-            font-size: 1.3rem;
-            font-weight: 700;
-            margin-bottom: 1rem;
-            color: #0ea5e9;
+        details {
+            margin-top: 2rem;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+        }
+
+        summary {
+            cursor: pointer;
+            font-weight: 600;
         }
 
         .logs-container {
-            background: #1e1e1e;
-            color: #d4d4d4;
+            margin-top: 1rem;
+            background: #0f172a;
+            color: #e2e8f0;
+            border-radius: 10px;
             padding: 1rem;
-            border-radius: 8px;
-            font-family: 'Courier New', monospace;
+            font-family: "Courier New", monospace;
             font-size: 0.85rem;
-            max-height: 400px;
+            max-height: 320px;
             overflow-y: auto;
-            line-height: 1.4;
         }
 
-        .log-entry {
-            margin-bottom: 0.3rem;
-            word-break: break-all;
-        }
-
-        @media (max-width: 768px) {
-            .route-grid {
-                grid-template-columns: 1fr;
+        @media (max-width: 640px) {
+            .header-inner {
+                padding: 1.5rem;
             }
-            
+
             .route-stats {
                 grid-template-columns: 1fr;
             }
@@ -308,27 +205,27 @@
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>🗺️ GMap Traffic Dashboard</h1>
-        <p>Real-time traffic monitoring and historical analysis</p>
-        <button class="refresh-btn" onclick="location.reload()">🔄 Refresh Data</button>
-        <div id="config-info" style="margin-top: 1rem; padding: 0.5rem 1rem; background: rgba(255,255,255,0.2); border-radius: 6px; font-size: 0.9rem;">
-            <span id="config-status">Loading configuration...</span>
-        </div>
-    </div>
-
-    <div class="container">
-        <div id="content">
-            <div class="loading">Loading data...</div>
-        </div>
-
-        <div class="logs-section">
-            <h2 class="logs-title">📋 Recent Logs</h2>
-            <div class="logs-container" id="logs">
-                <div class="loading">Loading logs...</div>
+    <header class="header">
+        <div class="header-inner">
+            <div class="title">GMap Traffic Dashboard</div>
+            <div class="subtitle">Focused overview of each monitored route.</div>
+            <div class="header-row">
+                <span class="pill" id="config-status">Loading configuration...</span>
+                <button class="refresh-btn" onclick="location.reload()">Refresh data</button>
             </div>
         </div>
-    </div>
+    </header>
+
+    <main class="container">
+        <div id="content">
+            <div class="empty-state">Loading data...</div>
+        </div>
+
+        <details>
+            <summary>Recent logs</summary>
+            <div class="logs-container" id="logs">Loading logs...</div>
+        </details>
+    </main>
 
     <script>
         let currentStructure = {};
@@ -339,8 +236,8 @@
                 currentStructure = await response.json();
                 renderRoutes();
             } catch (error) {
-                document.getElementById('content').innerHTML = 
-                    '<div class="empty-state"><h2>Error loading data</h2><p>' + error.message + '</p></div>';
+                document.getElementById('content').innerHTML =
+                    `<div class="empty-state">Error loading data: ${error.message}</div>`;
             }
         }
 
@@ -349,53 +246,61 @@
                 const response = await fetch('/api/logs');
                 const logs = await response.json();
                 const logsContainer = document.getElementById('logs');
-                
+
                 if (logs.length === 0) {
-                    logsContainer.innerHTML = '<div style="color: #999; text-align: center;">No logs available</div>';
+                    logsContainer.textContent = 'No logs available.';
                 } else {
-                    logsContainer.innerHTML = logs.map(log => 
-                        `<div class="log-entry">${escapeHtml(log)}</div>`
+                    logsContainer.innerHTML = logs.map(log =>
+                        `<div>${escapeHtml(log)}</div>`
                     ).join('');
-                    // Auto-scroll to bottom
                     logsContainer.scrollTop = logsContainer.scrollHeight;
                 }
             } catch (error) {
-                document.getElementById('logs').innerHTML = 
-                    '<div style="color: #ff6b6b;">Error loading logs: ' + error.message + '</div>';
+                document.getElementById('logs').textContent = `Error loading logs: ${error.message}`;
             }
         }
 
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/config');
+                const config = await response.json();
+                const statusEl = document.getElementById('config-status');
+
+                if (config.error) {
+                    statusEl.textContent = `Config error: ${config.error}`;
+                } else if (config.count > 0) {
+                    statusEl.textContent = `Monitoring ${config.count} route${config.count !== 1 ? 's' : ''}`;
+                } else {
+                    statusEl.textContent = 'No routes configured';
+                }
+            } catch (error) {
+                document.getElementById('config-status').textContent = 'Could not load configuration';
+            }
         }
 
         function renderRoutes() {
             const content = document.getElementById('content');
-            
+
             if (Object.keys(currentStructure).length === 0) {
                 content.innerHTML = `
                     <div class="empty-state">
-                        <h2>No Data Available</h2>
-                        <p>The scraper hasn't collected any data yet. Data will appear here after the first scrape run.</p>
+                        No data available yet. The scraper will populate routes after the first run.
                     </div>
                 `;
                 return;
             }
 
             let html = '<div class="route-grid">';
-            
+
             for (const [name, directions] of Object.entries(currentStructure)) {
                 for (const [direction, data] of Object.entries(directions)) {
-                    const chartId = `chart-${sanitizeId(name)}-${sanitizeId(direction)}`;
+                    const routeUrl = `/route/${encodeURIComponent(name)}/${encodeURIComponent(direction)}`;
                     html += `
                         <div class="route-card">
-                            <div class="route-header">
-                                <div class="route-name">${escapeHtml(name)}</div>
+                            <div>
+                                <div class="route-title">${escapeHtml(name)}</div>
                                 <div class="route-direction">${escapeHtml(direction)}</div>
                             </div>
-                            
                             <div class="route-stats">
                                 <div class="stat">
                                     <div class="stat-label">Total Records</div>
@@ -406,374 +311,40 @@
                                     <div class="stat-value">${data.latest_timestamp ? formatTimestamp(data.latest_timestamp) : 'N/A'}</div>
                                 </div>
                             </div>
-                            
-                            <div class="graph-container" id="container-${chartId}">
-                                <div class="chart-loading">Loading chart...</div>
-                            </div>
-                            
-                            <button class="toggle-table" 
-                                    data-name="${escapeHtml(name)}" 
-                                    data-direction="${escapeHtml(direction)}" 
-                                    data-csv-path="${data.csv_path}">
-                                📊 View Data Table
-                            </button>
-                            <div id="table-${sanitizeId(name)}-${sanitizeId(direction)}" style="display: none;"></div>
+                            <a class="route-link" href="${routeUrl}">Open route</a>
                         </div>
                     `;
                 }
             }
-            
+
             html += '</div>';
             content.innerHTML = html;
-            
-            // Add event delegation for toggle buttons
-            content.addEventListener('click', function(e) {
-                if (e.target.classList.contains('toggle-table') || e.target.closest('.toggle-table')) {
-                    const button = e.target.classList.contains('toggle-table') ? e.target : e.target.closest('.toggle-table');
-                    const name = button.dataset.name;
-                    const direction = button.dataset.direction;
-                    const csvPath = button.dataset.csvPath;
-                    toggleTable(name, direction, csvPath);
-                }
-            });
-            
-            // Load charts for all routes
-            for (const [name, directions] of Object.entries(currentStructure)) {
-                for (const [direction, data] of Object.entries(directions)) {
-                    if (data.csv_path) {
-                        loadChart(name, direction, data.csv_path);
-                    }
-                }
-            }
         }
 
-        function sanitizeId(text) {
-            return text.replace(/[^a-zA-Z0-9]/g, '-');
-        }
-
-        async function loadChart(name, direction, csvPath) {
-            const chartId = `chart-${sanitizeId(name)}-${sanitizeId(direction)}`;
-            const containerId = `container-${chartId}`;
-            
-            try {
-                const response = await fetch(`/api/data/${csvPath}`);
-                const data = await response.json();
-                
-                if (data.length === 0) {
-                    document.getElementById(containerId).innerHTML = '<div class="no-graph">No data available yet</div>';
-                    return;
-                }
-                
-                // Parse and prepare data with time analysis
-                const timestamps = [];
-                const durations = [];
-                const morningCommute = []; // 7-9 AM
-                const afternoonCommute = []; // 3-5 PM
-                const allTimeData = [];
-                
-                data.forEach(row => {
-                    const duration = parseFloat(row.duration_minutes);
-                    const timestamp = new Date(row.timestamp_local);
-                    const hour = timestamp.getHours();
-                    
-                    if (!isNaN(duration)) {
-                        timestamps.push(row.timestamp_local);
-                        durations.push(duration);
-                        allTimeData.push({ time: timestamp, duration: duration, hour: hour });
-                        
-                        // Categorize by commute time
-                        if (hour >= 7 && hour < 9) {
-                            morningCommute.push(duration);
-                        } else if (hour >= 15 && hour < 17) {
-                            afternoonCommute.push(duration);
-                        }
-                    }
-                });
-                
-                if (durations.length === 0) {
-                    document.getElementById(containerId).innerHTML = '<div class="no-graph">No valid data points</div>';
-                    return;
-                }
-                
-                // Calculate statistics
-                const median = calculateMedian(durations);
-                const p95 = calculatePercentile(durations, 95);
-                const morningAvg = morningCommute.length > 0 ? 
-                    morningCommute.reduce((a, b) => a + b, 0) / morningCommute.length : null;
-                const afternoonAvg = afternoonCommute.length > 0 ? 
-                    afternoonCommute.reduce((a, b) => a + b, 0) / afternoonCommute.length : null;
-                
-                // Color-code points by time of day
-                const colors = allTimeData.map(d => {
-                    if (d.hour >= 7 && d.hour < 9) return '#f59e0b'; // Orange for morning
-                    if (d.hour >= 15 && d.hour < 17) return '#8b5cf6'; // Purple for afternoon
-                    return '#94a3b8'; // Gray for other times
-                });
-                
-                // Downsample for performance if too many points (keep every nth point for large datasets)
-                const maxPoints = 1000;
-                let displayTimestamps = timestamps;
-                let displayDurations = durations;
-                let displayColors = colors;
-                
-                if (timestamps.length > maxPoints) {
-                    const step = Math.ceil(timestamps.length / maxPoints);
-                    displayTimestamps = timestamps.filter((_, i) => i % step === 0);
-                    displayDurations = durations.filter((_, i) => i % step === 0);
-                    displayColors = colors.filter((_, i) => i % step === 0);
-                }
-                
-                // Create Plotly traces
-                const trace1 = {
-                    x: displayTimestamps,
-                    y: displayDurations,
-                    type: 'scatter',
-                    mode: 'markers',
-                    name: 'Duration',
-                    marker: { 
-                        size: 5, 
-                        color: displayColors,
-                        opacity: 0.6,
-                        line: { width: 0 }
-                    },
-                    hovertemplate: '<b>%{y:.1f} min</b><br>%{x|%b %d, %I:%M %p}<extra></extra>'
-                };
-                
-                const trace2 = {
-                    x: [timestamps[0], timestamps[timestamps.length - 1]],
-                    y: [median, median],
-                    type: 'scatter',
-                    mode: 'lines',
-                    name: `Median (${median.toFixed(1)} min)`,
-                    line: { color: '#10b981', width: 2, dash: 'dash' }
-                };
-                
-                const traces = [trace1, trace2];
-                
-                // Add morning commute average line
-                if (morningAvg) {
-                    traces.push({
-                        x: [timestamps[0], timestamps[timestamps.length - 1]],
-                        y: [morningAvg, morningAvg],
-                        type: 'scatter',
-                        mode: 'lines',
-                        name: `Morning Avg (${morningAvg.toFixed(1)} min)`,
-                        line: { color: '#f59e0b', width: 2, dash: 'dot' }
-                    });
-                }
-                
-                // Add afternoon commute average line
-                if (afternoonAvg) {
-                    traces.push({
-                        x: [timestamps[0], timestamps[timestamps.length - 1]],
-                        y: [afternoonAvg, afternoonAvg],
-                        type: 'scatter',
-                        mode: 'lines',
-                        name: `Afternoon Avg (${afternoonAvg.toFixed(1)} min)`,
-                        line: { color: '#8b5cf6', width: 2, dash: 'dot' }
-                    });
-                }
-                
-                const layout = {
-                    title: `${name} - ${direction}`,
-                    xaxis: {
-                        title: 'Date & Time',
-                        type: 'date'
-                    },
-                    yaxis: {
-                        title: 'Duration (minutes)'
-                    },
-                    hovermode: 'closest',
-                    showlegend: true,
-                    legend: {
-                        orientation: 'h',
-                        y: -0.2,
-                        x: 0
-                    },
-                    margin: { l: 50, r: 30, t: 50, b: 80 },
-                    height: 350
-                };
-                
-                const config = {
-                    responsive: true,
-                    displayModeBar: true,
-                    displaylogo: false,
-                    modeBarButtonsToRemove: ['lasso2d', 'select2d']
-                };
-                
-                // Build HTML with commute stats
-                let statsHtml = '';
-                if (morningAvg || afternoonAvg) {
-                    statsHtml = '<div class="commute-stats">';
-                    if (morningAvg) {
-                        statsHtml += `
-                            <div class="commute-stat">
-                                <div class="commute-label">🌅 Morning Commute</div>
-                                <div class="commute-time">${morningAvg.toFixed(1)}</div>
-                                <div class="commute-period">min (7-9 AM, ${morningCommute.length} samples)</div>
-                            </div>
-                        `;
-                    }
-                    if (afternoonAvg) {
-                        statsHtml += `
-                            <div class="commute-stat">
-                                <div class="commute-label">🌆 Afternoon Commute</div>
-                                <div class="commute-time">${afternoonAvg.toFixed(1)}</div>
-                                <div class="commute-period">min (3-5 PM, ${afternoonCommute.length} samples)</div>
-                            </div>
-                        `;
-                    }
-                    statsHtml += '</div>';
-                }
-                
-                // Remove loading message and render
-                const container = document.getElementById(containerId);
-                container.innerHTML = statsHtml;
-                
-                // Create a div for the plot
-                const plotDiv = document.createElement('div');
-                plotDiv.style.height = '350px';
-                container.appendChild(plotDiv);
-                
-                // Create plot
-                Plotly.newPlot(plotDiv, traces, layout, config);
-                
-            } catch (error) {
-                document.getElementById(containerId).innerHTML = 
-                    '<div class="no-graph">Error loading chart: ' + error.message + '</div>';
-            }
-        }
-
-        function calculateMedian(arr) {
-            const sorted = [...arr].sort((a, b) => a - b);
-            const mid = Math.floor(sorted.length / 2);
-            return sorted.length % 2 === 0 
-                ? (sorted[mid - 1] + sorted[mid]) / 2 
-                : sorted[mid];
-        }
-
-        function calculatePercentile(arr, percentile) {
-            const sorted = [...arr].sort((a, b) => a - b);
-            const index = (percentile / 100) * (sorted.length - 1);
-            const lower = Math.floor(index);
-            const upper = Math.ceil(index);
-            const weight = index % 1;
-            
-            if (lower === upper) {
-                return sorted[lower];
-            }
-            
-            return sorted[lower] * (1 - weight) + sorted[upper] * weight;
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
 
         function formatTimestamp(timestamp) {
             try {
                 const date = new Date(timestamp);
-                return date.toLocaleString('en-US', { 
-                    month: 'short', 
-                    day: 'numeric', 
-                    hour: '2-digit', 
-                    minute: '2-digit' 
+                return date.toLocaleString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
                 });
             } catch {
                 return timestamp.split('T')[0];
             }
         }
 
-        async function toggleTable(name, direction, csvPath) {
-            const tableId = `table-${sanitizeId(name)}-${sanitizeId(direction)}`;
-            const tableContainer = document.getElementById(tableId);
-            
-            if (tableContainer.style.display === 'none') {
-                // Load and show table
-                try {
-                    tableContainer.innerHTML = '<div class="loading">Loading data...</div>';
-                    tableContainer.style.display = 'block';
-                    
-                    const response = await fetch(`/api/data/${csvPath}`);
-                    const data = await response.json();
-                    
-                    if (data.length === 0) {
-                        tableContainer.innerHTML = '<div class="no-graph">No data available</div>';
-                        return;
-                    }
-                    
-                    // Get last 100 rows for better analysis
-                    const recentData = data.slice(-100).reverse();
-                    
-                    let tableHtml = '<div class="data-table-container"><table class="data-table"><thead><tr>';
-                    tableHtml += '<th>Date & Time</th>';
-                    tableHtml += '<th>Hour</th>';
-                    tableHtml += '<th>Day</th>';
-                    tableHtml += '<th>Duration</th>';
-                    tableHtml += '<th>Period</th>';
-                    tableHtml += '</tr></thead><tbody>';
-                    
-                    recentData.forEach(row => {
-                        const timestamp = new Date(row.timestamp_local);
-                        const hour = timestamp.getHours();
-                        const duration = parseFloat(row.duration_minutes);
-                        
-                        // Determine period
-                        let period = 'Off-Peak';
-                        let periodClass = '';
-                        if (hour >= 7 && hour < 9) {
-                            period = '🌅 Morning';
-                            periodClass = 'style="background: #fef3c7;"';
-                        } else if (hour >= 15 && hour < 17) {
-                            period = '🌆 Afternoon';
-                            periodClass = 'style="background: #ede9fe;"';
-                        }
-                        
-                        tableHtml += `<tr ${periodClass}>`;
-                        tableHtml += `<td>${timestamp.toLocaleString('en-US', { 
-                            month: 'short', 
-                            day: 'numeric', 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                        })}</td>`;
-                        tableHtml += `<td>${hour}:${timestamp.getMinutes().toString().padStart(2, '0')}</td>`;
-                        tableHtml += `<td>${timestamp.toLocaleDateString('en-US', { weekday: 'short' })}</td>`;
-                        tableHtml += `<td><strong>${duration.toFixed(1)} min</strong></td>`;
-                        tableHtml += `<td>${period}</td>`;
-                        tableHtml += '</tr>';
-                    });
-                    
-                    tableHtml += '</tbody></table></div>';
-                    tableContainer.innerHTML = tableHtml;
-                } catch (error) {
-                    tableContainer.innerHTML = '<div class="no-graph">Error loading data: ' + error.message + '</div>';
-                }
-            } else {
-                // Hide table
-                tableContainer.style.display = 'none';
-            }
-        }
-
-        // Load data on page load
         loadData();
         loadLogs();
         loadConfig();
 
-        async function loadConfig() {
-            try {
-                const response = await fetch('/api/config');
-                const config = await response.json();
-                const statusEl = document.getElementById('config-status');
-                
-                if (config.error) {
-                    statusEl.textContent = `⚠️ Configuration: ${config.error}`;
-                } else if (config.count > 0) {
-                    statusEl.textContent = `📍 Monitoring ${config.count} route${config.count !== 1 ? 's' : ''}`;
-                } else {
-                    statusEl.textContent = '⚠️ No routes configured';
-                }
-            } catch (error) {
-                document.getElementById('config-status').textContent = '⚠️ Could not load configuration';
-            }
-        }
-
-        // Auto-refresh every 2 minutes
         setInterval(() => {
             loadData();
             loadLogs();

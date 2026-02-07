@@ -1,9 +1,9 @@
 services:
   gmap:
-    build: .
+    image: gitea.docker-1.gwebs.ca/gabriel/gmap:latest
     container_name: gmap
+    ports:
+      - "5000:5000"
     volumes:
       - /Apps/gmap:/app/data_runs
-    ports:
-      - "5000"  # Expose container port 5000 on a random host port
     restart: unless-stopped
