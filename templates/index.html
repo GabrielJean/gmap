@@ -109,6 +109,44 @@
             margin: 1rem 0;
         }
 
+        .commute-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin: 1rem 0;
+            padding: 1rem;
+            background: #f0f9ff;
+            border-radius: 8px;
+            border: 1px solid #0ea5e9;
+        }
+
+        .commute-stat {
+            text-align: center;
+        }
+
+        .commute-label {
+            font-size: 0.75rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.3rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.3rem;
+        }
+
+        .commute-time {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #0ea5e9;
+        }
+
+        .commute-period {
+            font-size: 0.7rem;
+            color: #999;
+        }
+
         .stat {
             background: #f8f9fa;
             padding: 0.8rem;
@@ -136,7 +174,7 @@
             overflow: hidden;
             background: white;
             padding: 1rem;
-            height: 400px;
+            min-height: 450px;
             position: relative;
         }
 
@@ -426,15 +464,29 @@
                     return;
                 }
                 
-                // Parse and prepare data
+                // Parse and prepare data with time analysis
                 const timestamps = [];
                 const durations = [];
+                const morningCommute = []; // 7-9 AM
+                const afternoonCommute = []; // 3-5 PM
+                const allTimeData = [];
                 
                 data.forEach(row => {
                     const duration = parseFloat(row.duration_minutes);
+                    const timestamp = new Date(row.timestamp_local);
+                    const hour = timestamp.getHours();
+                    
                     if (!isNaN(duration)) {
                         timestamps.push(row.timestamp_local);
                         durations.push(duration);
+                        allTimeData.push({ time: timestamp, duration: duration, hour: hour });
+                        
+                        // Categorize by commute time
+                        if (hour >= 7 && hour < 9) {
+                            morningCommute.push(duration);
+                        } else if (hour >= 15 && hour < 17) {
+                            afternoonCommute.push(duration);
+                        }
                     }
                 });
                 
@@ -446,16 +498,45 @@
                 // Calculate statistics
                 const median = calculateMedian(durations);
                 const p95 = calculatePercentile(durations, 95);
+                const morningAvg = morningCommute.length > 0 ? 
+                    morningCommute.reduce((a, b) => a + b, 0) / morningCommute.length : null;
+                const afternoonAvg = afternoonCommute.length > 0 ? 
+                    afternoonCommute.reduce((a, b) => a + b, 0) / afternoonCommute.length : null;
+                
+                // Color-code points by time of day
+                const colors = allTimeData.map(d => {
+                    if (d.hour >= 7 && d.hour < 9) return '#f59e0b'; // Orange for morning
+                    if (d.hour >= 15 && d.hour < 17) return '#8b5cf6'; // Purple for afternoon
+                    return '#94a3b8'; // Gray for other times
+                });
+                
+                // Downsample for performance if too many points (keep every nth point for large datasets)
+                const maxPoints = 1000;
+                let displayTimestamps = timestamps;
+                let displayDurations = durations;
+                let displayColors = colors;
+                
+                if (timestamps.length > maxPoints) {
+                    const step = Math.ceil(timestamps.length / maxPoints);
+                    displayTimestamps = timestamps.filter((_, i) => i % step === 0);
+                    displayDurations = durations.filter((_, i) => i % step === 0);
+                    displayColors = colors.filter((_, i) => i % step === 0);
+                }
                 
                 // Create Plotly traces
                 const trace1 = {
-                    x: timestamps,
-                    y: durations,
+                    x: displayTimestamps,
+                    y: displayDurations,
                     type: 'scatter',
-                    mode: 'lines+markers',
+                    mode: 'markers',
                     name: 'Duration',
-                    line: { color: '#0ea5e9', width: 2 },
-                    marker: { size: 4, color: '#0ea5e9' }
+                    marker: { 
+                        size: 5, 
+                        color: displayColors,
+                        opacity: 0.6,
+                        line: { width: 0 }
+                    },
+                    hovertemplate: '<b>%{y:.1f} min</b><br>%{x|%b %d, %I:%M %p}<extra></extra>'
                 };
                 
                 const trace2 = {
@@ -463,25 +544,40 @@
                     y: [median, median],
                     type: 'scatter',
                     mode: 'lines',
-                    name: 'Median',
-                    line: { color: '#ff6b6b', width: 2, dash: 'dash' }
+                    name: `Median (${median.toFixed(1)} min)`,
+                    line: { color: '#10b981', width: 2, dash: 'dash' }
                 };
                 
-                const trace3 = {
-                    x: [timestamps[0], timestamps[timestamps.length - 1]],
-                    y: [p95, p95],
-                    type: 'scatter',
-                    mode: 'lines',
-                    name: '95th Percentile',
-                    line: { color: '#ffa500', width: 2, dash: 'dot' }
-                };
+                const traces = [trace1, trace2];
                 
-                const plotData = [trace1, trace2, trace3];
+                // Add morning commute average line
+                if (morningAvg) {
+                    traces.push({
+                        x: [timestamps[0], timestamps[timestamps.length - 1]],
+                        y: [morningAvg, morningAvg],
+                        type: 'scatter',
+                        mode: 'lines',
+                        name: `Morning Avg (${morningAvg.toFixed(1)} min)`,
+                        line: { color: '#f59e0b', width: 2, dash: 'dot' }
+                    });
+                }
+                
+                // Add afternoon commute average line
+                if (afternoonAvg) {
+                    traces.push({
+                        x: [timestamps[0], timestamps[timestamps.length - 1]],
+                        y: [afternoonAvg, afternoonAvg],
+                        type: 'scatter',
+                        mode: 'lines',
+                        name: `Afternoon Avg (${afternoonAvg.toFixed(1)} min)`,
+                        line: { color: '#8b5cf6', width: 2, dash: 'dot' }
+                    });
+                }
                 
                 const layout = {
-                    title: `Traffic Duration: ${name} - ${direction}`,
+                    title: `${name} - ${direction}`,
                     xaxis: {
-                        title: 'Date',
+                        title: 'Date & Time',
                         type: 'date'
                     },
                     yaxis: {
@@ -491,7 +587,8 @@
                     showlegend: true,
                     legend: {
                         orientation: 'h',
-                        y: -0.2
+                        y: -0.2,
+                        x: 0
                     },
                     margin: { l: 50, r: 30, t: 50, b: 80 },
                     height: 350
@@ -504,12 +601,42 @@
                     modeBarButtonsToRemove: ['lasso2d', 'select2d']
                 };
                 
-                // Remove loading message and canvas
+                // Build HTML with commute stats
+                let statsHtml = '';
+                if (morningAvg || afternoonAvg) {
+                    statsHtml = '<div class="commute-stats">';
+                    if (morningAvg) {
+                        statsHtml += `
+                            <div class="commute-stat">
+                                <div class="commute-label">🌅 Morning Commute</div>
+                                <div class="commute-time">${morningAvg.toFixed(1)}</div>
+                                <div class="commute-period">min (7-9 AM, ${morningCommute.length} samples)</div>
+                            </div>
+                        `;
+                    }
+                    if (afternoonAvg) {
+                        statsHtml += `
+                            <div class="commute-stat">
+                                <div class="commute-label">🌆 Afternoon Commute</div>
+                                <div class="commute-time">${afternoonAvg.toFixed(1)}</div>
+                                <div class="commute-period">min (3-5 PM, ${afternoonCommute.length} samples)</div>
+                            </div>
+                        `;
+                    }
+                    statsHtml += '</div>';
+                }
+                
+                // Remove loading message and render
                 const container = document.getElementById(containerId);
-                container.innerHTML = '';
+                container.innerHTML = statsHtml;
+                
+                // Create a div for the plot
+                const plotDiv = document.createElement('div');
+                plotDiv.style.height = '350px';
+                container.appendChild(plotDiv);
                 
                 // Create plot
-                Plotly.newPlot(containerId, plotData, layout, config);
+                Plotly.newPlot(plotDiv, traces, layout, config);
                 
             } catch (error) {
                 document.getElementById(containerId).innerHTML = 
@@ -571,30 +698,44 @@
                         return;
                     }
                     
-                    // Get last 50 rows
-                    const recentData = data.slice(-50).reverse();
+                    // Get last 100 rows for better analysis
+                    const recentData = data.slice(-100).reverse();
                     
                     let tableHtml = '<div class="data-table-container"><table class="data-table"><thead><tr>';
-                    const headers = Object.keys(recentData[0]);
-                    headers.forEach(header => {
-                        tableHtml += `<th>${escapeHtml(header)}</th>`;
-                    });
+                    tableHtml += '<th>Date & Time</th>';
+                    tableHtml += '<th>Hour</th>';
+                    tableHtml += '<th>Day</th>';
+                    tableHtml += '<th>Duration</th>';
+                    tableHtml += '<th>Period</th>';
                     tableHtml += '</tr></thead><tbody>';
                     
                     recentData.forEach(row => {
-                        tableHtml += '<tr>';
-                        headers.forEach(header => {
-                            let value = row[header] || '';
-                            // Format timestamp
-                            if (header === 'timestamp_local' && value) {
-                                value = formatTimestamp(value);
-                            }
-                            // Format duration
-                            if (header === 'duration_minutes' && value) {
-                                value = parseFloat(value).toFixed(1) + ' min';
-                            }
-                            tableHtml += `<td>${escapeHtml(String(value))}</td>`;
-                        });
+                        const timestamp = new Date(row.timestamp_local);
+                        const hour = timestamp.getHours();
+                        const duration = parseFloat(row.duration_minutes);
+                        
+                        // Determine period
+                        let period = 'Off-Peak';
+                        let periodClass = '';
+                        if (hour >= 7 && hour < 9) {
+                            period = '🌅 Morning';
+                            periodClass = 'style="background: #fef3c7;"';
+                        } else if (hour >= 15 && hour < 17) {
+                            period = '🌆 Afternoon';
+                            periodClass = 'style="background: #ede9fe;"';
+                        }
+                        
+                        tableHtml += `<tr ${periodClass}>`;
+                        tableHtml += `<td>${timestamp.toLocaleString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric', 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                        })}</td>`;
+                        tableHtml += `<td>${hour}:${timestamp.getMinutes().toString().padStart(2, '0')}</td>`;
+                        tableHtml += `<td>${timestamp.toLocaleDateString('en-US', { weekday: 'short' })}</td>`;
+                        tableHtml += `<td><strong>${duration.toFixed(1)} min</strong></td>`;
+                        tableHtml += `<td>${period}</td>`;
                         tableHtml += '</tr>';
                     });
                     
