@@ -91,4 +91,17 @@ Configuration is managed through the `.env` file, which contains:
 - URLs to scrape (JSON array or comma-separated list)
 - Other application settings
 
-The `.env` file is encrypted with Ansible Vault for security.
+**Important:** The `.env` file is encrypted with Ansible Vault for security. During deployment, the CI/CD pipeline automatically decrypts it before building the Docker image.
+
+### .env Format
+
+```bash
+URLS='[{"name": "Route 1", "direction": "North", "url": "https://..."}, {"name": "Route 2", "direction": "South", "url": "https://..."}]'
+```
+
+Or simple comma-separated URLs:
+```bash
+URLS='https://maps.google.com/...,https://maps.google.com/...'
+```
+
+The web dashboard will display the number of configured routes on the header.

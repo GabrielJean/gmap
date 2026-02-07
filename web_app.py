@@ -162,6 +162,51 @@ def serve_image(png_path: str):
     return send_file(full_path, mimetype='image/png')
 
 
+@app.route('/api/config')
+def api_config():
+    """Return configured URLs from .env file."""
+    try:
+        # Load URLs from .env (same method used by gmap.py)
+        from pathlib import Path
+        import os
+        
+        env_path = Path(".env")
+        if not env_path.exists():
+            return jsonify({"error": "Configuration file not found"}), 404
+        
+        # Load .env file
+        for line in env_path.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            os.environ.setdefault(key, value)
+        
+        # Parse URLs
+        import json as json_module
+        raw_urls = os.getenv("URLS", "")
+        
+        if not raw_urls:
+            return jsonify({"urls": [], "raw": ""})
+        
+        # Try to parse as JSON
+        try:
+            parsed = json_module.loads(raw_urls)
+            urls = parsed if isinstance(parsed, list) else [parsed] if isinstance(parsed, str) else []
+        except json_module.JSONDecodeError:
+            # Fall back to comma-separated
+            urls = [u.strip() for u in raw_urls.split(",") if u.strip()]
+        
+        return jsonify({
+            "urls": urls,
+            "count": len(urls)
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route('/api/logs')
 def api_logs():
     """Return recent log entries."""

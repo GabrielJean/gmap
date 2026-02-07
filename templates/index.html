@@ -274,6 +274,9 @@
         <h1>🗺️ GMap Traffic Dashboard</h1>
         <p>Real-time traffic monitoring and historical analysis</p>
         <button class="refresh-btn" onclick="location.reload()">🔄 Refresh Data</button>
+        <div id="config-info" style="margin-top: 1rem; padding: 0.5rem 1rem; background: rgba(255,255,255,0.2); border-radius: 6px; font-size: 0.9rem;">
+            <span id="config-status">Loading configuration...</span>
+        </div>
     </div>
 
     <div class="container">
@@ -595,6 +598,25 @@
         // Load data on page load
         loadData();
         loadLogs();
+        loadConfig();
+
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/config');
+                const config = await response.json();
+                const statusEl = document.getElementById('config-status');
+                
+                if (config.error) {
+                    statusEl.textContent = `⚠️ Configuration: ${config.error}`;
+                } else if (config.count > 0) {
+                    statusEl.textContent = `📍 Monitoring ${config.count} route${config.count !== 1 ? 's' : ''}`;
+                } else {
+                    statusEl.textContent = '⚠️ No routes configured';
+                }
+            } catch (error) {
+                document.getElementById('config-status').textContent = '⚠️ Could not load configuration';
+            }
+        }
 
         // Auto-refresh every 2 minutes
         setInterval(() => {
