@@ -373,7 +373,10 @@
                                 <div class="chart-loading">Loading chart...</div>
                             </div>
                             
-                            <button class="toggle-table" onclick="toggleTable('${escapeHtml(name)}', '${escapeHtml(direction)}', '${data.csv_path}')">
+                            <button class="toggle-table" 
+                                    data-name="${escapeHtml(name)}" 
+                                    data-direction="${escapeHtml(direction)}" 
+                                    data-csv-path="${data.csv_path}">
                                 📊 View Data Table
                             </button>
                             <div id="table-${sanitizeId(name)}-${sanitizeId(direction)}" style="display: none;"></div>
@@ -384,6 +387,17 @@
             
             html += '</div>';
             content.innerHTML = html;
+            
+            // Add event delegation for toggle buttons
+            content.addEventListener('click', function(e) {
+                if (e.target.classList.contains('toggle-table') || e.target.closest('.toggle-table')) {
+                    const button = e.target.classList.contains('toggle-table') ? e.target : e.target.closest('.toggle-table');
+                    const name = button.dataset.name;
+                    const direction = button.dataset.direction;
+                    const csvPath = button.dataset.csvPath;
+                    toggleTable(name, direction, csvPath);
+                }
+            });
             
             // Load charts for all routes
             for (const [name, directions] of Object.entries(currentStructure)) {

@@ -5,5 +5,5 @@ services:
     volumes:
       - /Apps/gmap:/app/data_runs
     ports:
-      - "5000"  # Expose on random host port
+      - "5000"  # Expose container port 5000 on a random host port
     restart: unless-stopped

@@ -20,7 +20,6 @@ OUTPUT_DIR = Path("data_runs")
 def get_local_tz(key: str = "America/Toronto"):
     """Return desired TZ or UTC if tzdata is missing."""
     try:
-        from datetime import timezone
         return ZoneInfo(key)
     except ZoneInfoNotFoundError:
         from datetime import timezone
@@ -167,9 +166,6 @@ def api_config():
     """Return configured URLs from .env file."""
     try:
         # Load URLs from .env (same method used by gmap.py)
-        from pathlib import Path
-        import os
-        
         env_path = Path(".env")
         if not env_path.exists():
             return jsonify({"error": "Configuration file not found"}), 404
@@ -185,7 +181,6 @@ def api_config():
             os.environ.setdefault(key, value)
         
         # Parse URLs
-        import json as json_module
         raw_urls = os.getenv("URLS", "")
         
         if not raw_urls:
@@ -193,9 +188,9 @@ def api_config():
         
         # Try to parse as JSON
         try:
-            parsed = json_module.loads(raw_urls)
+            parsed = json.loads(raw_urls)
             urls = parsed if isinstance(parsed, list) else [parsed] if isinstance(parsed, str) else []
-        except json_module.JSONDecodeError:
+        except json.JSONDecodeError:
             # Fall back to comma-separated
             urls = [u.strip() for u in raw_urls.split(",") if u.strip()]
         
