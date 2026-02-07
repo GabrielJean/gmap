@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GMap Traffic Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1rem;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .refresh-btn {
+            background: white;
+            color: #667eea;
+            border: none;
+            padding: 0.7rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            margin-top: 1rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        }
+
+        .route-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .route-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .route-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.12);
+        }
+
+        .route-header {
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .route-name {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 0.3rem;
+        }
+
+        .route-direction {
+            font-size: 0.9rem;
+            color: #666;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .route-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .stat {
+            background: #f8f9fa;
+            padding: 0.8rem;
+            border-radius: 8px;
+            border-left: 3px solid #667eea;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.3rem;
+        }
+
+        .stat-value {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .graph-container {
+            margin: 1.5rem 0;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #f8f9fa;
+        }
+
+        .graph-container img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .no-graph {
+            padding: 2rem;
+            text-align: center;
+            color: #999;
+            font-style: italic;
+        }
+
+        .data-table-container {
+            margin-top: 1rem;
+            max-height: 300px;
+            overflow-y: auto;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        .data-table th {
+            background: #f8f9fa;
+            padding: 0.6rem;
+            text-align: left;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .data-table td {
+            padding: 0.6rem;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .data-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .toggle-table {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+            transition: background 0.3s ease;
+        }
+
+        .toggle-table:hover {
+            background: #5568d3;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: #999;
+        }
+
+        .empty-state h2 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #667eea;
+            font-size: 1.2rem;
+        }
+
+        .logs-section {
+            margin-top: 3rem;
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        }
+
+        .logs-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            color: #667eea;
+        }
+
+        .logs-container {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            max-height: 400px;
+            overflow-y: auto;
+            line-height: 1.4;
+        }
+
+        .log-entry {
+            margin-bottom: 0.3rem;
+            word-break: break-all;
+        }
+
+        @media (max-width: 768px) {
+            .route-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .route-stats {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🗺️ GMap Traffic Dashboard</h1>
+        <p>Real-time traffic monitoring and historical analysis</p>
+        <button class="refresh-btn" onclick="location.reload()">🔄 Refresh Data</button>
+    </div>
+
+    <div class="container">
+        <div id="content">
+            <div class="loading">Loading data...</div>
+        </div>
+
+        <div class="logs-section">
+            <h2 class="logs-title">📋 Recent Logs</h2>
+            <div class="logs-container" id="logs">
+                <div class="loading">Loading logs...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentStructure = {};
+
+        async function loadData() {
+            try {
+                const response = await fetch('/api/structure');
+                currentStructure = await response.json();
+                renderRoutes();
+            } catch (error) {
+                document.getElementById('content').innerHTML = 
+                    '<div class="empty-state"><h2>Error loading data</h2><p>' + error.message + '</p></div>';
+            }
+        }
+
+        async function loadLogs() {
+            try {
+                const response = await fetch('/api/logs');
+                const logs = await response.json();
+                const logsContainer = document.getElementById('logs');
+                
+                if (logs.length === 0) {
+                    logsContainer.innerHTML = '<div style="color: #999; text-align: center;">No logs available</div>';
+                } else {
+                    logsContainer.innerHTML = logs.map(log => 
+                        `<div class="log-entry">${escapeHtml(log)}</div>`
+                    ).join('');
+                    // Auto-scroll to bottom
+                    logsContainer.scrollTop = logsContainer.scrollHeight;
+                }
+            } catch (error) {
+                document.getElementById('logs').innerHTML = 
+                    '<div style="color: #ff6b6b;">Error loading logs: ' + error.message + '</div>';
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function renderRoutes() {
+            const content = document.getElementById('content');
+            
+            if (Object.keys(currentStructure).length === 0) {
+                content.innerHTML = `
+                    <div class="empty-state">
+                        <h2>No Data Available</h2>
+                        <p>The scraper hasn't collected any data yet. Data will appear here after the first scrape run.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '<div class="route-grid">';
+            
+            for (const [name, directions] of Object.entries(currentStructure)) {
+                for (const [direction, data] of Object.entries(directions)) {
+                    html += `
+                        <div class="route-card">
+                            <div class="route-header">
+                                <div class="route-name">${escapeHtml(name)}</div>
+                                <div class="route-direction">${escapeHtml(direction)}</div>
+                            </div>
+                            
+                            <div class="route-stats">
+                                <div class="stat">
+                                    <div class="stat-label">Total Records</div>
+                                    <div class="stat-value">${data.row_count || 0}</div>
+                                </div>
+                                <div class="stat">
+                                    <div class="stat-label">Latest Update</div>
+                                    <div class="stat-value">${data.latest_timestamp ? formatTimestamp(data.latest_timestamp) : 'N/A'}</div>
+                                </div>
+                            </div>
+                            
+                            ${data.png_path ? `
+                                <div class="graph-container">
+                                    <img src="/image/${data.png_path}" alt="Traffic graph for ${escapeHtml(name)} - ${escapeHtml(direction)}">
+                                </div>
+                            ` : '<div class="no-graph">No graph available yet</div>'}
+                            
+                            <button class="toggle-table" onclick="toggleTable('${escapeHtml(name)}', '${escapeHtml(direction)}', '${data.csv_path}')">
+                                📊 View Data Table
+                            </button>
+                            <div id="table-${escapeHtml(name)}-${escapeHtml(direction)}" style="display: none;"></div>
+                        </div>
+                    `;
+                }
+            }
+            
+            html += '</div>';
+            content.innerHTML = html;
+        }
+
+        function formatTimestamp(timestamp) {
+            try {
+                const date = new Date(timestamp);
+                return date.toLocaleString('en-US', { 
+                    month: 'short', 
+                    day: 'numeric', 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+            } catch {
+                return timestamp.split('T')[0];
+            }
+        }
+
+        async function toggleTable(name, direction, csvPath) {
+            const tableId = `table-${name}-${direction}`;
+            const tableContainer = document.getElementById(tableId);
+            
+            if (tableContainer.style.display === 'none') {
+                // Load and show table
+                try {
+                    tableContainer.innerHTML = '<div class="loading">Loading data...</div>';
+                    tableContainer.style.display = 'block';
+                    
+                    const response = await fetch(`/api/data/${csvPath}`);
+                    const data = await response.json();
+                    
+                    if (data.length === 0) {
+                        tableContainer.innerHTML = '<div class="no-graph">No data available</div>';
+                        return;
+                    }
+                    
+                    // Get last 50 rows
+                    const recentData = data.slice(-50).reverse();
+                    
+                    let tableHtml = '<div class="data-table-container"><table class="data-table"><thead><tr>';
+                    const headers = Object.keys(recentData[0]);
+                    headers.forEach(header => {
+                        tableHtml += `<th>${escapeHtml(header)}</th>`;
+                    });
+                    tableHtml += '</tr></thead><tbody>';
+                    
+                    recentData.forEach(row => {
+                        tableHtml += '<tr>';
+                        headers.forEach(header => {
+                            let value = row[header] || '';
+                            // Format timestamp
+                            if (header === 'timestamp_local' && value) {
+                                value = formatTimestamp(value);
+                            }
+                            // Format duration
+                            if (header === 'duration_minutes' && value) {
+                                value = parseFloat(value).toFixed(1) + ' min';
+                            }
+                            tableHtml += `<td>${escapeHtml(String(value))}</td>`;
+                        });
+                        tableHtml += '</tr>';
+                    });
+                    
+                    tableHtml += '</tbody></table></div>';
+                    tableContainer.innerHTML = tableHtml;
+                } catch (error) {
+                    tableContainer.innerHTML = '<div class="no-graph">Error loading data: ' + error.message + '</div>';
+                }
+            } else {
+                // Hide table
+                tableContainer.style.display = 'none';
+            }
+        }
+
+        // Load data on page load
+        loadData();
+        loadLogs();
+
+        // Auto-refresh every 2 minutes
+        setInterval(() => {
+            loadData();
+            loadLogs();
+        }, 120000);
+    </script>
+</body>
+</html>

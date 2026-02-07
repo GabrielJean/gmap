@@ -1,5 +1,5 @@
 #!/bin/sh
-# Run on wall-clock quarter-hours (e.g., 15:00, 15:15, 15:30, 15:45).
+# Run web server and scraper
 trap "exit 0" INT TERM
 
 QUARTER=900 # seconds
@@ -11,9 +11,18 @@ sleep_until_next_slot() {
   [ "$delay" -gt 0 ] && sleep "$delay"
 }
 
-# Align first run to the next quarter-hour.
+# Start web server in background
+echo "Starting web dashboard on port 5000..."
+python web_app.py &
+WEB_PID=$!
+
+# Give web server time to start
+sleep 5
+
+# Align first scrape run to the next quarter-hour
 sleep_until_next_slot
 
+# Run scraper in a loop
 while true; do
   python gmap.py
   status=$?

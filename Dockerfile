@@ -17,11 +17,16 @@ RUN pip install --no-cache-dir -r requirements.txt \
 
 # Application code
 COPY gmap.py ./
+COPY web_app.py ./
+COPY templates ./templates
 COPY run.sh ./
 
 RUN chmod +x run.sh
 
 # Runtime configuration (decrypted by CI before docker build)
 COPY .env ./
+
+# Expose web dashboard port
+EXPOSE 5000
 
 ENTRYPOINT ["./run.sh"]
