@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GMap Traffic Dashboard</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js" charset="utf-8"></script>
     <style>
         * {
             margin: 0;
@@ -133,13 +134,14 @@
             margin: 1.5rem 0;
             border-radius: 8px;
             overflow: hidden;
-            background: #f8f9fa;
+            background: white;
+            padding: 1rem;
+            height: 400px;
+            position: relative;
         }
 
-        .graph-container img {
-            width: 100%;
-            height: auto;
-            display: block;
+        .graph-container canvas {
+            max-height: 100%;
         }
 
         .no-graph {
@@ -147,6 +149,14 @@
             text-align: center;
             color: #999;
             font-style: italic;
+        }
+
+        .chart-loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #667eea;
         }
 
         .data-table-container {
@@ -337,6 +347,7 @@
             
             for (const [name, directions] of Object.entries(currentStructure)) {
                 for (const [direction, data] of Object.entries(directions)) {
+                    const chartId = `chart-${sanitizeId(name)}-${sanitizeId(direction)}`;
                     html += `
                         <div class="route-card">
                             <div class="route-header">
@@ -355,16 +366,14 @@
                                 </div>
                             </div>
                             
-                            ${data.png_path ? `
-                                <div class="graph-container">
-                                    <img src="/image/${data.png_path}" alt="Traffic graph for ${escapeHtml(name)} - ${escapeHtml(direction)}">
-                                </div>
-                            ` : '<div class="no-graph">No graph available yet</div>'}
+                            <div class="graph-container" id="container-${chartId}">
+                                <div class="chart-loading">Loading chart...</div>
+                            </div>
                             
                             <button class="toggle-table" onclick="toggleTable('${escapeHtml(name)}', '${escapeHtml(direction)}', '${data.csv_path}')">
                                 📊 View Data Table
                             </button>
-                            <div id="table-${escapeHtml(name)}-${escapeHtml(direction)}" style="display: none;"></div>
+                            <div id="table-${sanitizeId(name)}-${sanitizeId(direction)}" style="display: none;"></div>
                         </div>
                     `;
                 }
@@ -372,6 +381,145 @@
             
             html += '</div>';
             content.innerHTML = html;
+            
+            // Load charts for all routes
+            for (const [name, directions] of Object.entries(currentStructure)) {
+                for (const [direction, data] of Object.entries(directions)) {
+                    if (data.csv_path) {
+                        loadChart(name, direction, data.csv_path);
+                    }
+                }
+            }
+        }
+
+        function sanitizeId(text) {
+            return text.replace(/[^a-zA-Z0-9]/g, '-');
+        }
+
+        async function loadChart(name, direction, csvPath) {
+            const chartId = `chart-${sanitizeId(name)}-${sanitizeId(direction)}`;
+            const containerId = `container-${chartId}`;
+            
+            try {
+                const response = await fetch(`/api/data/${csvPath}`);
+                const data = await response.json();
+                
+                if (data.length === 0) {
+                    document.getElementById(containerId).innerHTML = '<div class="no-graph">No data available yet</div>';
+                    return;
+                }
+                
+                // Parse and prepare data
+                const timestamps = [];
+                const durations = [];
+                
+                data.forEach(row => {
+                    const duration = parseFloat(row.duration_minutes);
+                    if (!isNaN(duration)) {
+                        timestamps.push(row.timestamp_local);
+                        durations.push(duration);
+                    }
+                });
+                
+                if (durations.length === 0) {
+                    document.getElementById(containerId).innerHTML = '<div class="no-graph">No valid data points</div>';
+                    return;
+                }
+                
+                // Calculate statistics
+                const median = calculateMedian(durations);
+                const p95 = calculatePercentile(durations, 95);
+                
+                // Create Plotly traces
+                const trace1 = {
+                    x: timestamps,
+                    y: durations,
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    name: 'Duration',
+                    line: { color: '#667eea', width: 2 },
+                    marker: { size: 4, color: '#667eea' }
+                };
+                
+                const trace2 = {
+                    x: [timestamps[0], timestamps[timestamps.length - 1]],
+                    y: [median, median],
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: 'Median',
+                    line: { color: '#ff6b6b', width: 2, dash: 'dash' }
+                };
+                
+                const trace3 = {
+                    x: [timestamps[0], timestamps[timestamps.length - 1]],
+                    y: [p95, p95],
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: '95th Percentile',
+                    line: { color: '#ffa500', width: 2, dash: 'dot' }
+                };
+                
+                const plotData = [trace1, trace2, trace3];
+                
+                const layout = {
+                    title: `Traffic Duration: ${name} - ${direction}`,
+                    xaxis: {
+                        title: 'Date',
+                        type: 'date'
+                    },
+                    yaxis: {
+                        title: 'Duration (minutes)'
+                    },
+                    hovermode: 'closest',
+                    showlegend: true,
+                    legend: {
+                        orientation: 'h',
+                        y: -0.2
+                    },
+                    margin: { l: 50, r: 30, t: 50, b: 80 },
+                    height: 350
+                };
+                
+                const config = {
+                    responsive: true,
+                    displayModeBar: true,
+                    displaylogo: false,
+                    modeBarButtonsToRemove: ['lasso2d', 'select2d']
+                };
+                
+                // Remove loading message and canvas
+                const container = document.getElementById(containerId);
+                container.innerHTML = '';
+                
+                // Create plot
+                Plotly.newPlot(containerId, plotData, layout, config);
+                
+            } catch (error) {
+                document.getElementById(containerId).innerHTML = 
+                    '<div class="no-graph">Error loading chart: ' + error.message + '</div>';
+            }
+        }
+
+        function calculateMedian(arr) {
+            const sorted = [...arr].sort((a, b) => a - b);
+            const mid = Math.floor(sorted.length / 2);
+            return sorted.length % 2 === 0 
+                ? (sorted[mid - 1] + sorted[mid]) / 2 
+                : sorted[mid];
+        }
+
+        function calculatePercentile(arr, percentile) {
+            const sorted = [...arr].sort((a, b) => a - b);
+            const index = (percentile / 100) * (sorted.length - 1);
+            const lower = Math.floor(index);
+            const upper = Math.ceil(index);
+            const weight = index % 1;
+            
+            if (lower === upper) {
+                return sorted[lower];
+            }
+            
+            return sorted[lower] * (1 - weight) + sorted[upper] * weight;
         }
 
         function formatTimestamp(timestamp) {
@@ -389,7 +537,7 @@
         }
 
         async function toggleTable(name, direction, csvPath) {
-            const tableId = `table-${name}-${direction}`;
+            const tableId = `table-${sanitizeId(name)}-${sanitizeId(direction)}`;
             const tableContainer = document.getElementById(tableId);
             
             if (tableContainer.style.display === 'none') {
