@@ -14,13 +14,23 @@ A web scraping application that uses Playwright to scrape dynamic web pages on a
 
 The application now includes a web dashboard accessible on port 5000 that displays:
 
-- **Traffic graphs**: Visual representations of historical traffic data
-- **Data tables**: Raw CSV data for each route and direction
-- **Statistics**: Total records and latest update timestamps
-- **Live logs**: Recent application logs
+- **Interactive traffic graphs**: 
+  - Real-time line charts showing duration over time
+  - Median and 95th percentile reference lines
+  - Zoom, pan, and hover capabilities for detailed analysis
+- **Data tables**: Raw CSV data for each route and direction (expandable)
+- **Statistics**: Total records and latest update timestamps for each route
+- **Live logs**: Recent application logs for monitoring and debugging
 - **Auto-refresh**: Dashboard updates automatically every 2 minutes
 
-The dashboard is available at `http://localhost:5000` (or the randomly assigned port when using `docker-compose`).
+The dashboard reads directly from the CSV files stored in the `data_runs/` directory, ensuring all historical data is accessible.
+
+### Features:
+- Responsive design that works on desktop and mobile
+- Cards for each route/direction combination
+- Interactive Plotly.js charts for data visualization
+- Filterable and sortable data tables
+- Real-time log viewing
 
 ## Running Locally
 
@@ -43,12 +53,28 @@ The dashboard is available at `http://localhost:5000` (or the randomly assigned 
 4. Access the web dashboard:
    - Find the exposed port: `docker ps` (look for the port mapping like `0.0.0.0:xxxxx->5000/tcp`)
    - Open browser: `http://localhost:<port>` (replace `<port>` with the actual port number)
+   - Or use a specific port by modifying `docker-compose.yml`:
+     ```yaml
+     ports:
+       - "5000:5000"  # Map host port 5000 to container port 5000
+     ```
+   - Access at: `http://localhost:5000`
 
-Alternatively, to run on a specific port (e.g., 5000), modify `docker-compose.yml`:
-```yaml
-ports:
-  - "5000:5000"  # Map host port 5000 to container port 5000
+### Data Storage
+
+All historical data is stored in CSV files in the `data_runs/` directory, which is mounted from the host at `/Apps/gmap`. The directory structure is:
+
 ```
+data_runs/
+├── {route-name}/
+│   └── {direction}/
+│       ├── {route-name}-{direction}.csv  # Historical data
+│       └── {route-name}-{direction}.png  # Generated graph (optional)
+├── logs.txt                               # Application logs
+└── snapshots/                             # Debug snapshots
+```
+
+The web dashboard reads these CSV files to display charts and tables, ensuring compatibility with existing historical data.
 
 ## CI/CD Pipeline
 
