@@ -339,6 +339,12 @@
                 : sorted[mid];
         }
 
+        function calculateAverage(arr) {
+            if (!arr.length) return null;
+            const total = arr.reduce((sum, value) => sum + value, 0);
+            return total / arr.length;
+        }
+
         function calculatePercentile(arr, percentile) {
             if (!arr.length) return null;
             const sorted = [...arr].sort((a, b) => a - b);
@@ -713,6 +719,7 @@
                     renderPlaceholder('chart-weekday', 'No data available yet.');
                     renderPlaceholder('chart-hist', 'No data available yet.');
                     renderStats([
+                        { label: 'Average (min)', value: 'N/A' },
                         { label: 'Total records', value: 0 }
                     ]);
                     renderCommuteExplain({
@@ -749,6 +756,7 @@
                     renderPlaceholder('chart-weekday', 'No valid data points.');
                     renderPlaceholder('chart-hist', 'No valid data points.');
                     renderStats([
+                        { label: 'Average (min)', value: 'N/A' },
                         { label: 'Total records', value: 0 }
                     ]);
                     renderCommuteExplain({
@@ -771,6 +779,7 @@
                 const durations = parsed.map(row => row.duration);
                 const latest = parsed[parsed.length - 1];
                 const first = parsed[0];
+                const average = calculateAverage(durations);
                 const median = calculateMedian(durations);
                 const p90 = calculatePercentile(durations, 90);
                 const p95 = calculatePercentile(durations, 95);
@@ -787,6 +796,9 @@
                     const hour = row.timestamp.getHours();
                     return hour >= 15 && hour < 17;
                 }).map(row => row.duration);
+
+                const morningAverage = calculateAverage(morning);
+                const afternoonAverage = calculateAverage(afternoon);
 
                 const commuteRows = parsed.filter(row => {
                     const hour = row.timestamp.getHours();
@@ -826,6 +838,11 @@
                 }));
 
                 renderStats([
+                    {
+                        label: 'Average (min)',
+                        value: average ? average.toFixed(1) : 'N/A',
+                        note: 'Mean trip length across all samples.'
+                    },
                     { label: 'Total records', value: parsed.length },
                     { label: 'First seen', value: formatTimestamp(first.timestamp.toISOString()) },
                     { label: 'Latest update', value: formatTimestamp(latest.timestamp.toISOString()) },
@@ -860,9 +877,19 @@
                         note: 'Typical time for the 7-9 AM window.'
                     },
                     {
+                        label: 'Morning average',
+                        value: morningAverage ? morningAverage.toFixed(1) : 'N/A',
+                        note: 'Mean time for the 7-9 AM window.'
+                    },
+                    {
                         label: 'Afternoon median',
                         value: afternoon.length ? calculateMedian(afternoon).toFixed(1) : 'N/A',
                         note: 'Typical time for the 3-5 PM window.'
+                    },
+                    {
+                        label: 'Afternoon average',
+                        value: afternoonAverage ? afternoonAverage.toFixed(1) : 'N/A',
+                        note: 'Mean time for the 3-5 PM window.'
                     },
                     {
                         label: 'Commute P90',
