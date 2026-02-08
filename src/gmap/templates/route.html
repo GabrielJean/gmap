@@ -102,6 +102,33 @@
             margin-top: 0.35rem;
         }
 
+        .stat-note {
+            margin-top: 0.65rem;
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.6rem 0.75rem;
+        }
+
+        .stat-note summary {
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--accent-dark);
+            list-style: none;
+            font-size: 0.8rem;
+        }
+
+        .stat-note summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .stat-note p {
+            margin-top: 0.45rem;
+            color: var(--muted);
+            line-height: 1.4;
+            font-size: 0.8rem;
+        }
+
         .chart-section {
             margin-top: 2rem;
         }
@@ -119,19 +146,43 @@
             padding: 1rem;
             box-shadow: 0 12px 28px rgba(15, 23, 42, 0.05);
             min-height: 320px;
-            display: flex;
-            align-items: center;
+            width: 100%;
+        }
+
+        .chart-notes {
+            margin-top: 0.75rem;
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.85rem 1rem;
+        }
+
+        .chart-notes summary {
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--accent-dark);
+            list-style: none;
+        }
+
+        .chart-notes summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .chart-notes p {
+            margin-top: 0.6rem;
+            color: var(--muted);
+            line-height: 1.5;
         }
 
         .chart-grid {
             display: grid;
             grid-template-columns: minmax(0, 1fr);
             gap: 1.75rem;
-            justify-items: center;
         }
 
         .chart-block {
             width: min(1200px, 100%);
+            max-width: 100%;
         }
 
         .chart-card .js-plotly-plot {
@@ -211,26 +262,50 @@
                 <div class="chart-block">
                     <div class="chart-title">Duration over time</div>
                     <div class="chart-card" id="chart-timeseries"></div>
+                    <details class="chart-notes">
+                        <summary>What this shows</summary>
+                        <p>Every sample over time. Use zoom to inspect specific days or weeks. Rising bands mean the route is trending slower; tighter bands mean more consistent commutes.</p>
+                    </details>
                 </div>
                 <div class="chart-block">
-                    <div class="chart-title">Commute windows: 7-9 AM vs 3-5 PM</div>
+                    <div class="chart-title">Commute windows: P50 / P90 / P95</div>
                     <div class="chart-card" id="chart-commute"></div>
+                    <details class="chart-notes">
+                        <summary>What this shows</summary>
+                        <p>Median and bad-day percentiles for each commute window. Lower P50 is typical speed; lower P90/P95 means fewer nasty surprises.</p>
+                    </details>
                 </div>
                 <div class="chart-block">
-                    <div class="chart-title">Daily median (all samples)</div>
+                    <div class="chart-title">Commute window trend (daily P50 / P90)</div>
                     <div class="chart-card" id="chart-daily"></div>
+                    <details class="chart-notes">
+                        <summary>What this shows</summary>
+                        <p>Day-by-day medians and P90s for the morning and afternoon windows. Use it to spot improving or worsening trends over months.</p>
+                    </details>
                 </div>
                 <div class="chart-block">
-                    <div class="chart-title">Hour of day median</div>
+                    <div class="chart-title">Median by 15-minute slot (commute windows)</div>
                     <div class="chart-card" id="chart-hourly"></div>
+                    <details class="chart-notes">
+                        <summary>What this shows</summary>
+                        <p>Median commute time for each 15-minute slot in your 7-9 AM and 3-5 PM windows. The lowest bars show the best time to leave inside those windows.</p>
+                    </details>
                 </div>
                 <div class="chart-block">
-                    <div class="chart-title">Weekday median (commute windows only)</div>
+                    <div class="chart-title">On-time rate by weekday (commute windows)</div>
                     <div class="chart-card" id="chart-weekday"></div>
+                    <details class="chart-notes">
+                        <summary>What this shows</summary>
+                        <p>Share of trips that finish within the on-time threshold (median + 5 minutes). Higher bars mean that weekday is more reliable for commuting.</p>
+                    </details>
                 </div>
                 <div class="chart-block">
-                    <div class="chart-title">Duration distribution</div>
+                    <div class="chart-title">Commute window distribution</div>
                     <div class="chart-card" id="chart-hist"></div>
+                    <details class="chart-notes">
+                        <summary>What this shows</summary>
+                        <p>Spread of commute times for morning vs afternoon. Narrower boxes mean steadier travel; higher boxes mean that window is usually slower.</p>
+                    </details>
                 </div>
             </div>
         </section>
@@ -279,6 +354,14 @@
             return sorted[lower] * (1 - weight) + sorted[upper] * weight;
         }
 
+        function calculateIqr(arr) {
+            if (!arr.length) return null;
+            const p75 = calculatePercentile(arr, 75);
+            const p25 = calculatePercentile(arr, 25);
+            if (p75 === null || p25 === null) return null;
+            return p75 - p25;
+        }
+
         function downsample(data, maxPoints) {
             if (data.length <= maxPoints) return data;
             const step = Math.ceil(data.length / maxPoints);
@@ -291,6 +374,12 @@
                 <div class="stat-card">
                     <div class="stat-label">${stat.label}</div>
                     <div class="stat-value">${stat.value}</div>
+                    ${stat.note ? `
+                        <details class="stat-note">
+                            <summary>What this means</summary>
+                            <p>${stat.note}</p>
+                        </details>
+                    ` : ''}
                 </div>
             `).join('');
         }
@@ -342,6 +431,31 @@
             return { dates, medians };
         }
 
+        function buildCommuteDailyStats(rows, startHour, endHour) {
+            const bucket = {};
+            rows.forEach(row => {
+                const hour = row.timestamp.getHours();
+                if (hour < startHour || hour >= endHour) return;
+                const dateKey = row.timestamp.toISOString().slice(0, 10);
+                if (!bucket[dateKey]) {
+                    bucket[dateKey] = [];
+                }
+                bucket[dateKey].push(row.duration);
+            });
+
+            const dates = [];
+            const medians = [];
+            const p90s = [];
+            Object.keys(bucket).sort().forEach(dateKey => {
+                const values = bucket[dateKey];
+                dates.push(dateKey);
+                medians.push(calculateMedian(values));
+                p90s.push(calculatePercentile(values, 90));
+            });
+
+            return { dates, medians, p90s };
+        }
+
         function buildHourlyMedians(rows) {
             const bucket = Array.from({ length: 24 }, () => []);
             rows.forEach(row => {
@@ -350,6 +464,51 @@
             const labels = bucket.map((_, idx) => `${idx}`.padStart(2, '0'));
             const medians = bucket.map(values => calculateMedian(values));
             return { labels, medians };
+        }
+
+        function buildCommuteHourlyMedians(rows) {
+            const formatSlotLabel = totalMinutes => {
+                const hour = Math.floor(totalMinutes / 60);
+                const minute = totalMinutes % 60;
+                return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+            };
+
+            const slots = [];
+            for (let minute = 0; minute < 120; minute += 15) {
+                const start = 7 * 60 + minute;
+                slots.push({
+                    start,
+                    label: formatSlotLabel(start),
+                    values: []
+                });
+            }
+            for (let minute = 0; minute < 120; minute += 15) {
+                const start = 15 * 60 + minute;
+                slots.push({
+                    start,
+                    label: formatSlotLabel(start),
+                    values: []
+                });
+            }
+
+            rows.forEach(row => {
+                const hour = row.timestamp.getHours();
+                const minute = row.timestamp.getMinutes();
+                const totalMinutes = hour * 60 + minute;
+                const inMorning = totalMinutes >= 7 * 60 && totalMinutes < 9 * 60;
+                const inAfternoon = totalMinutes >= 15 * 60 && totalMinutes < 17 * 60;
+                if (!inMorning && !inAfternoon) return;
+                const slotStart = Math.floor(totalMinutes / 15) * 15;
+                const slot = slots.find(item => item.start === slotStart);
+                if (slot) {
+                    slot.values.push(row.duration);
+                }
+            });
+
+            return {
+                labels: slots.map(slot => slot.label),
+                medians: slots.map(slot => calculateMedian(slot.values))
+            };
         }
 
         function buildWeekdayMedians(rows) {
@@ -373,6 +532,23 @@
             const labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
             const medians = bucket.map(values => calculateMedian(values));
             return { labels, medians };
+        }
+
+        function buildCommuteWeekdayOnTime(rows, targetMinutes) {
+            const bucket = Array.from({ length: 7 }, () => []);
+            rows.forEach(row => {
+                const hour = row.timestamp.getHours();
+                if ((hour >= 7 && hour < 9) || (hour >= 15 && hour < 17)) {
+                    bucket[row.timestamp.getDay()].push(row.duration);
+                }
+            });
+            const labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const rates = bucket.map(values => {
+                if (!values.length) return null;
+                const onTime = values.filter(value => value <= targetMinutes).length;
+                return (onTime / values.length) * 100;
+            });
+            return { labels, rates };
         }
 
         function commuteSummary(morningValues, afternoonValues) {
@@ -412,7 +588,8 @@
             afternoonValues,
             offpeakValues,
             spikeTimestamps,
-            bestWindow
+            bestWindow,
+            onTimeTarget
         }) {
             if (!commuteValues.length) {
                 return {
@@ -457,6 +634,10 @@
                 ? `Best time to leave: ${bestWindow.label} (median ${bestWindow.median.toFixed(1)} min across ${bestWindow.count} samples).`
                 : 'Best time to leave needs more commute samples.';
 
+            const onTimeText = onTimeTarget
+                ? `On-time means within ${onTimeTarget.toFixed(1)} min (median + 5).`
+                : 'On-time target will appear once commute data exists.';
+
             return {
                 headline: `Typical commute time: ${commuteMedian.toFixed(1)} min (p90: ${
                     commuteP90 ? commuteP90.toFixed(1) : 'N/A'
@@ -465,6 +646,7 @@
                     peakVsOffpeak,
                     recommendation,
                     bestWindowText,
+                    onTimeText,
                     spikeText
                 ]
             };
@@ -515,7 +697,7 @@
         }
 
         function chartConfig() {
-            return { responsive: true, displayModeBar: false };
+            return { responsive: true, displayModeBar: true };
         }
 
         async function loadRoute() {
@@ -591,6 +773,8 @@
                 const first = parsed[0];
                 const median = calculateMedian(durations);
                 const p90 = calculatePercentile(durations, 90);
+                const p95 = calculatePercentile(durations, 95);
+                const iqr = calculateIqr(durations);
                 const min = Math.min(...durations);
                 const max = Math.max(...durations);
 
@@ -609,6 +793,11 @@
                     return (hour >= 7 && hour < 9) || (hour >= 15 && hour < 17);
                 });
                 const commuteValues = commuteRows.map(row => row.duration);
+                const hasCommute = commuteValues.length > 0;
+                const commuteMedian = calculateMedian(commuteValues);
+                const commuteP90 = calculatePercentile(commuteValues, 90);
+                const commuteP95 = calculatePercentile(commuteValues, 95);
+                const commuteIqr = calculateIqr(commuteValues);
                 const offpeakValues = parsed.filter(row => {
                     const hour = row.timestamp.getHours();
                     return hour < 7 || (hour >= 9 && hour < 15) || hour >= 17;
@@ -620,6 +809,10 @@
                     : commuteRows.filter(row => row.duration >= spikeThreshold).map(row => row.timestamp);
 
                 const bestWindow = bestCommuteWindow(commuteRows);
+                const onTimeTarget = commuteMedian !== null ? commuteMedian + 5 : null;
+                const onTimeOverall = onTimeTarget !== null && commuteValues.length
+                    ? (commuteValues.filter(value => value <= onTimeTarget).length / commuteValues.length) * 100
+                    : null;
 
                 renderCommuteExplain(commuteSummary(morning, afternoon));
                 renderCommuteAnalysis(commuteAnalysis({
@@ -628,18 +821,69 @@
                     afternoonValues: afternoon,
                     offpeakValues,
                     spikeTimestamps,
-                    bestWindow
+                    bestWindow,
+                    onTimeTarget
                 }));
 
                 renderStats([
                     { label: 'Total records', value: parsed.length },
                     { label: 'First seen', value: formatTimestamp(first.timestamp.toISOString()) },
                     { label: 'Latest update', value: formatTimestamp(latest.timestamp.toISOString()) },
-                    { label: 'Median (min)', value: median ? median.toFixed(1) : 'N/A' },
-                    { label: '90th percentile', value: p90 ? p90.toFixed(1) : 'N/A' },
-                    { label: 'Range (min)', value: `${min.toFixed(1)} - ${max.toFixed(1)}` },
-                    { label: 'Morning median', value: morning.length ? calculateMedian(morning).toFixed(1) : 'N/A' },
-                    { label: 'Afternoon median', value: afternoon.length ? calculateMedian(afternoon).toFixed(1) : 'N/A' }
+                    {
+                        label: 'Median (min)',
+                        value: median ? median.toFixed(1) : 'N/A',
+                        note: 'Typical trip length across all samples. Half the trips are shorter and half are longer.'
+                    },
+                    {
+                        label: '90th percentile',
+                        value: p90 ? p90.toFixed(1) : 'N/A',
+                        note: 'A "bad-day" estimate. 90% of trips are at or faster than this time.'
+                    },
+                    {
+                        label: '95th percentile',
+                        value: p95 ? p95.toFixed(1) : 'N/A',
+                        note: 'A near worst-case estimate. Only 5% of trips are slower than this.'
+                    },
+                    {
+                        label: 'IQR (min)',
+                        value: iqr ? iqr.toFixed(1) : 'N/A',
+                        note: 'Variability for the middle 50% of trips. Smaller numbers mean more consistency.'
+                    },
+                    {
+                        label: 'Range (min)',
+                        value: `${min.toFixed(1)} - ${max.toFixed(1)}`,
+                        note: 'Absolute fastest and slowest trips recorded.'
+                    },
+                    {
+                        label: 'Morning median',
+                        value: morning.length ? calculateMedian(morning).toFixed(1) : 'N/A',
+                        note: 'Typical time for the 7-9 AM window.'
+                    },
+                    {
+                        label: 'Afternoon median',
+                        value: afternoon.length ? calculateMedian(afternoon).toFixed(1) : 'N/A',
+                        note: 'Typical time for the 3-5 PM window.'
+                    },
+                    {
+                        label: 'Commute P90',
+                        value: commuteP90 ? commuteP90.toFixed(1) : 'N/A',
+                        note: 'Bad-day estimate limited to commute windows only.'
+                    },
+                    {
+                        label: 'Commute P95',
+                        value: commuteP95 ? commuteP95.toFixed(1) : 'N/A',
+                        note: 'Near worst-case estimate for commute windows only.'
+                    },
+                    {
+                        label: 'Commute IQR',
+                        value: commuteIqr ? commuteIqr.toFixed(1) : 'N/A',
+                        note: 'Consistency of commute-window trips. Lower is steadier.'
+                    },
+                    {
+                        label: 'On-time rate',
+                        value: onTimeOverall !== null ? `${onTimeOverall.toFixed(0)}%` : 'N/A',
+                        note: 'Share of commute-window trips that finish within the on-time threshold (median + 5 minutes).'
+                    }
                 ]);
 
                 const downsampled = downsample(parsed, 1500);
@@ -662,43 +906,89 @@
                     hovermode: 'x unified'
                 }, baseConfig);
 
+                if (!hasCommute) {
+                    renderPlaceholder('chart-commute', 'No commute-window samples yet.');
+                    renderPlaceholder('chart-daily', 'No commute-window samples yet.');
+                    renderPlaceholder('chart-hourly', 'No commute-window samples yet.');
+                    renderPlaceholder('chart-weekday', 'No commute-window samples yet.');
+                    renderPlaceholder('chart-hist', 'No commute-window samples yet.');
+                    return;
+                }
+
                 Plotly.newPlot('chart-commute', [
                     {
-                        x: ['7-9 AM', '3-5 PM'],
+                        x: ['P50', 'P90', 'P95'],
                         y: [
                             morning.length ? calculateMedian(morning) : null,
-                            afternoon.length ? calculateMedian(afternoon) : null
+                            morning.length ? calculatePercentile(morning, 90) : null,
+                            morning.length ? calculatePercentile(morning, 95) : null
                         ],
+                        name: '7-9 AM',
                         type: 'bar',
-                        marker: { color: ['#f59e0b', '#8b5cf6'] },
-                        text: [
-                            morning.length ? `${calculateMedian(morning).toFixed(1)} min` : 'N/A',
-                            afternoon.length ? `${calculateMedian(afternoon).toFixed(1)} min` : 'N/A'
+                        marker: { color: '#f59e0b' }
+                    },
+                    {
+                        x: ['P50', 'P90', 'P95'],
+                        y: [
+                            afternoon.length ? calculateMedian(afternoon) : null,
+                            afternoon.length ? calculatePercentile(afternoon, 90) : null,
+                            afternoon.length ? calculatePercentile(afternoon, 95) : null
                         ],
-                        textposition: 'auto'
+                        name: '3-5 PM',
+                        type: 'bar',
+                        marker: { color: '#8b5cf6' }
                     }
                 ], {
                     ...baseLayout,
-                    yaxis: { title: 'Median minutes', automargin: true }
+                    barmode: 'group',
+                    yaxis: { title: 'Minutes', automargin: true }
                 }, baseConfig);
 
-                const daily = buildDailyMedians(parsed);
+                const dailyMorning = buildCommuteDailyStats(parsed, 7, 9);
+                const dailyAfternoon = buildCommuteDailyStats(parsed, 15, 17);
                 Plotly.newPlot('chart-daily', [
                     {
-                        x: daily.dates,
-                        y: daily.medians,
+                        x: dailyMorning.dates,
+                        y: dailyMorning.medians,
+                        name: '7-9 AM P50',
                         type: 'scatter',
                         mode: 'lines+markers',
-                        line: { color: '#0284c7', width: 2 },
+                        line: { color: '#f59e0b', width: 2 },
                         marker: { size: 5 }
+                    },
+                    {
+                        x: dailyMorning.dates,
+                        y: dailyMorning.p90s,
+                        name: '7-9 AM P90',
+                        type: 'scatter',
+                        mode: 'lines',
+                        line: { color: '#f59e0b', width: 2, dash: 'dot' }
+                    },
+                    {
+                        x: dailyAfternoon.dates,
+                        y: dailyAfternoon.medians,
+                        name: '3-5 PM P50',
+                        type: 'scatter',
+                        mode: 'lines+markers',
+                        line: { color: '#8b5cf6', width: 2 },
+                        marker: { size: 5 }
+                    },
+                    {
+                        x: dailyAfternoon.dates,
+                        y: dailyAfternoon.p90s,
+                        name: '3-5 PM P90',
+                        type: 'scatter',
+                        mode: 'lines',
+                        line: { color: '#8b5cf6', width: 2, dash: 'dot' }
                     }
                 ], {
                     ...baseLayout,
                     xaxis: { title: 'Day', automargin: true },
-                    yaxis: { title: 'Median minutes', automargin: true }
+                    yaxis: { title: 'Minutes', automargin: true },
+                    legend: { orientation: 'h', y: -0.2 }
                 }, baseConfig);
 
-                const hourly = buildHourlyMedians(parsed);
+                const hourly = buildCommuteHourlyMedians(parsed);
                 Plotly.newPlot('chart-hourly', [
                     {
                         x: hourly.labels,
@@ -712,30 +1002,38 @@
                     yaxis: { title: 'Median minutes', automargin: true }
                 }, baseConfig);
 
-                const weekday = buildCommuteWeekdayMedians(parsed);
+                const weekday = buildCommuteWeekdayOnTime(parsed, onTimeTarget ?? 0);
                 Plotly.newPlot('chart-weekday', [
                     {
                         x: weekday.labels,
-                        y: weekday.medians,
+                        y: weekday.rates,
                         type: 'bar',
                         marker: { color: '#f97316' }
                     }
                 ], {
                     ...baseLayout,
                     xaxis: { title: 'Weekday', automargin: true },
-                    yaxis: { title: 'Median minutes', automargin: true }
+                    yaxis: { title: 'On-time %', automargin: true, rangemode: 'tozero' }
                 }, baseConfig);
 
                 Plotly.newPlot('chart-hist', [
                     {
-                        x: durations,
-                        type: 'histogram',
-                        marker: { color: '#64748b' }
+                        y: morning,
+                        name: '7-9 AM',
+                        type: 'box',
+                        boxpoints: false,
+                        marker: { color: '#f59e0b' }
+                    },
+                    {
+                        y: afternoon,
+                        name: '3-5 PM',
+                        type: 'box',
+                        boxpoints: false,
+                        marker: { color: '#8b5cf6' }
                     }
                 ], {
                     ...baseLayout,
-                    xaxis: { title: 'Minutes', automargin: true },
-                    yaxis: { title: 'Count', automargin: true }
+                    yaxis: { title: 'Minutes', automargin: true }
                 }, baseConfig);
             } catch (error) {
                 renderPlaceholder('chart-timeseries', `Error loading data: ${error.message}`);
