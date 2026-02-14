@@ -15,14 +15,9 @@ from gmap.web_app import app as flask_app
 QUARTER_SECONDS = 900
 
 
-def sleep_until_next_slot(stop_check: Callable[[], bool]) -> bool:
-    """Sleep until the next quarter-hour slot; return False if stopped."""
-    now = time.time()
-    next_slot = (int(now) // QUARTER_SECONDS + 1) * QUARTER_SECONDS
-    delay = max(0, next_slot - now)
-    next_slot_label = time.strftime("%Y-%m-%d %H:%M:%S %Z", time.localtime(next_slot))
-    log_message(f"[app] Next scrape scheduled at {next_slot_label} (in {int(delay)}s)")
-    return sleep_with_stop(delay, stop_check)
+def fmt_slot(ts: float) -> str:
+    """Format an epoch timestamp in local time for logs."""
+    return time.strftime("%Y-%m-%d %H:%M:%S %Z", time.localtime(ts))
 
 
 def sleep_with_stop(delay: float, stop_check: Callable[[], bool]) -> bool:
@@ -44,28 +39,58 @@ def run_web() -> None:
 
 
 def run_scraper_loop(stop_check: Callable[[], bool]) -> None:
-    """Run scraper strictly on wall-clock quarter-hour boundaries."""
+    """Run scraper on quarter-hour slots; skip slots missed by long cycles."""
     cycle = 0
 
-    if not sleep_until_next_slot(stop_check):
-        return
+    now = time.time()
+    next_slot = (int(now) // QUARTER_SECONDS) * QUARTER_SECONDS
+
+    if next_slot <= now:
+        delay = 0
+    else:
+        delay = next_slot - now
+
+    log_message(
+        "[app] Quarter-hour scheduler ready "
+        f"(no slot discard); next slot {fmt_slot(next_slot)} "
+        f"(in {int(delay)}s)"
+    )
 
     while not stop_check():
+        now = time.time()
+        if now > next_slot:
+            skipped_first_slot = next_slot
+            skipped_slots = int((now - next_slot) // QUARTER_SECONDS) + 1
+            next_slot = (int(now) // QUARTER_SECONDS + 1) * QUARTER_SECONDS
+            log_message(
+                f"[app] Previous cycle overran next slot; skipped {skipped_slots} slot(s) "
+                f"starting at {fmt_slot(skipped_first_slot)}. Resuming at {fmt_slot(next_slot)}"
+            )
+
+        if now < next_slot:
+            if not sleep_with_stop(next_slot - now, stop_check):
+                return
+            now = time.time()
+
         cycle += 1
-        log_message(f"[app] Starting scrape cycle #{cycle}")
+        log_message(f"[app] Starting scrape cycle #{cycle} for slot {fmt_slot(next_slot)}")
         try:
             scrape_main()
-            log_message(f"[app] Scrape cycle #{cycle} completed")
+            log_message(f"[app] Scrape cycle #{cycle} completed for slot {fmt_slot(next_slot)}")
         except Exception as exc:
             msg = f"[app] Scrape cycle #{cycle} failed with error {exc}; retrying in 60s"
             print(msg, file=sys.stderr)
             log_message(msg)
             if not sleep_with_stop(60, stop_check):
                 return
-            continue
+        finally:
+            next_slot += QUARTER_SECONDS
 
-        if not sleep_until_next_slot(stop_check):
-            return
+        if not stop_check() and time.time() < next_slot:
+            log_message(
+                f"[app] Next scrape scheduled at {fmt_slot(next_slot)} "
+                f"(in {int(next_slot - time.time())}s)"
+            )
 
 
 def main() -> None:
