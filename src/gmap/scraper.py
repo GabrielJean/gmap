@@ -789,8 +789,11 @@ def main() -> None:
 			try:
 				result = scrape_page(page, entry.url, selectors)
 			except Exception as exc:
-				log_message(f"Exception while scraping '{entry.name}' ({entry.direction}) url={entry.url}: {exc}")
-				raise
+				log_message(
+					f"[scraper] Route {idx + 1}/{len(urls)} failed: '{entry.name}' ({entry.direction}) "
+					f"url={entry.url} error={exc}; continuing with remaining routes"
+				)
+				continue
 			result["timestamp_local"] = timestamp_local
 			result["day_of_week"] = day_of_week
 			result["name"] = entry.name

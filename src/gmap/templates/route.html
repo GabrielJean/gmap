@@ -339,17 +339,45 @@
                 normalized = normalized.replace(' ', 'T');
             }
 
+            normalized = normalized.replace(/\/(\d{1,2})\/(\d{1,2})\/(\d{4})/, '$3-$1-$2');
             normalized = normalized.replace(/([+-]\d{2})(\d{2})$/, '$1:$2');
-            normalized = normalized.replace(/\.(\d{3})\d+(?=(Z|[+-]\d{2}:\d{2})$)/, '.$1');
+            normalized = normalized.replace(/\.(\d{3})\d+/, '.$1');
 
             let parsed = new Date(normalized);
             if (!Number.isNaN(parsed.getTime())) {
                 return parsed;
             }
 
-            normalized = normalized.replace(/\.\d+(?=(Z|[+-]\d{2}:\d{2})$)/, '');
+            normalized = normalized.replace(/\.\d+/, '');
             parsed = new Date(normalized);
-            return Number.isNaN(parsed.getTime()) ? null : parsed;
+            if (!Number.isNaN(parsed.getTime())) {
+                return parsed;
+            }
+
+            const match = normalized.match(
+                /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/
+            );
+            if (!match) {
+                return null;
+            }
+
+            const [, year, month, day, hour, minute, second = '0'] = match;
+            const fallback = new Date(
+                Number(year),
+                Number(month) - 1,
+                Number(day),
+                Number(hour),
+                Number(minute),
+                Number(second)
+            );
+            return Number.isNaN(fallback.getTime()) ? null : fallback;
+        }
+
+        function localDateKey(timestamp) {
+            const y = timestamp.getFullYear();
+            const m = String(timestamp.getMonth() + 1).padStart(2, '0');
+            const d = String(timestamp.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
         }
 
         function calculateMedian(arr) {
@@ -442,7 +470,7 @@
         function buildDailyMedians(rows) {
             const bucket = {};
             rows.forEach(row => {
-                const dateKey = row.timestamp.toISOString().slice(0, 10);
+                const dateKey = localDateKey(row.timestamp);
                 if (!bucket[dateKey]) {
                     bucket[dateKey] = [];
                 }
@@ -464,7 +492,7 @@
             rows.forEach(row => {
                 const hour = row.timestamp.getHours();
                 if (hour < startHour || hour >= endHour) return;
-                const dateKey = row.timestamp.toISOString().slice(0, 10);
+                const dateKey = localDateKey(row.timestamp);
                 if (!bucket[dateKey]) {
                     bucket[dateKey] = [];
                 }
@@ -768,7 +796,8 @@
                         duration,
                         timestamp
                     };
-                }).filter(row => !Number.isNaN(row.duration) && row.timestamp);
+                }).filter(row => !Number.isNaN(row.duration) && row.timestamp)
+                    .sort((a, b) => a.timestamp - b.timestamp);
 
                 if (!parsed.length) {
                     renderPlaceholder('chart-timeseries', 'No valid data points.');

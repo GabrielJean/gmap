@@ -327,9 +327,35 @@
             return div.innerHTML;
         }
 
+        function parseCsvTimestamp(value) {
+            if (!value) return null;
+
+            let normalized = String(value).trim();
+            if (!normalized) return null;
+
+            if (!normalized.includes('T') && normalized.includes(' ')) {
+                normalized = normalized.replace(' ', 'T');
+            }
+
+            normalized = normalized.replace(/([+-]\d{2})(\d{2})$/, '$1:$2');
+            normalized = normalized.replace(/\.(\d{3})\d+/, '.$1');
+
+            let parsed = new Date(normalized);
+            if (!Number.isNaN(parsed.getTime())) {
+                return parsed;
+            }
+
+            normalized = normalized.replace(/\.\d+/, '');
+            parsed = new Date(normalized);
+            return Number.isNaN(parsed.getTime()) ? null : parsed;
+        }
+
         function formatTimestamp(timestamp) {
             try {
-                const date = new Date(timestamp);
+                const date = parseCsvTimestamp(timestamp);
+                if (!date) {
+                    throw new Error('Invalid timestamp');
+                }
                 return date.toLocaleString('en-US', {
                     month: 'short',
                     day: 'numeric',
@@ -337,7 +363,7 @@
                     minute: '2-digit'
                 });
             } catch {
-                return timestamp.split('T')[0];
+                return typeof timestamp === 'string' ? timestamp.split('T')[0] : 'N/A';
             }
         }
 
