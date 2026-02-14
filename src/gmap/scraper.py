@@ -231,17 +231,33 @@ def parse_duration_minutes(duration_text: Optional[str]) -> Optional[float]:
 	if not duration_text:
 		return None
 
-	tokens = duration_text.lower().replace("hrs", "hr").replace("mins", "min").split()
+	normalized = duration_text.lower().replace("\xa0", " ")
+	normalized = re.sub(r"\s+", " ", normalized).strip()
+
 	hours = 0
 	minutes = 0
 
-	for idx, token in enumerate(tokens):
-		if token.isdigit():
-			next_token = tokens[idx + 1] if idx + 1 < len(tokens) else ""
-			if next_token.startswith("hr"):
-				hours += int(token)
-			elif next_token.startswith("min"):
-				minutes += int(token)
+	hour_match = re.search(r"(\d+)\s*(?:h|hr|hrs|heure|heures)\b", normalized, re.IGNORECASE)
+	if hour_match:
+		hours = int(hour_match.group(1))
+
+	minute_match = re.search(r"(\d+)\s*(?:min|mins|minute|minutes)\b", normalized, re.IGNORECASE)
+	if minute_match:
+		minutes = int(minute_match.group(1))
+	elif hour_match:
+		# Handle compact forms like "1h05" or "1 h 05" where "min" is omitted.
+		compact_minute_match = re.search(
+			r"(?:\d+)\s*(?:h|hr|hrs|heure|heures)\s*(\d{1,2})\b",
+			normalized,
+			re.IGNORECASE,
+		)
+		if compact_minute_match:
+			minutes = int(compact_minute_match.group(1))
+	else:
+		# Minute-only compact form like "45m".
+		short_minute_match = re.search(r"(\d+)\s*m\b", normalized, re.IGNORECASE)
+		if short_minute_match:
+			minutes = int(short_minute_match.group(1))
 
 	total_minutes = hours * 60 + minutes
 	return total_minutes if total_minutes > 0 else None
@@ -250,9 +266,9 @@ def parse_duration_minutes(duration_text: Optional[str]) -> Optional[float]:
 def extract_duration_fragment(text: str) -> Optional[str]:
 	"""Pull a plausible duration fragment (e.g., '1 hr 5 min' or '38 min') from free text."""
 	patterns = [
-		r"(\d+\s*hr\s*\d+\s*min)",
-		r"(\d+\s*hr)",
-		r"(\d+\s*min)",
+		r"(\d+\s*(?:h|hr|hrs|heure|heures)\s*\d{1,2}\s*(?:min|mins|minute|minutes)?)",
+		r"(\d+\s*(?:h|hr|hrs|heure|heures))",
+		r"(\d+\s*(?:min|mins|minute|minutes|m))",
 	]
 	for pat in patterns:
 		match = re.search(pat, text, re.IGNORECASE)
