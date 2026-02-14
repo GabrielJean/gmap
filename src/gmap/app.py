@@ -44,8 +44,12 @@ def run_web() -> None:
 
 
 def run_scraper_loop(stop_check: Callable[[], bool]) -> None:
-    """Run one scrape immediately, then continue on quarter-hour cadence."""
+    """Run scraper strictly on wall-clock quarter-hour boundaries."""
     cycle = 0
+
+    if not sleep_until_next_slot(stop_check):
+        return
+
     while not stop_check():
         cycle += 1
         log_message(f"[app] Starting scrape cycle #{cycle}")
