@@ -317,17 +317,39 @@
         const routeDirection = {{ direction | tojson }};
 
         function formatTimestamp(timestamp) {
-            try {
-                const date = new Date(timestamp);
-                return date.toLocaleString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
-            } catch {
-                return timestamp.split('T')[0];
+            const date = timestamp instanceof Date ? timestamp : parseCsvTimestamp(timestamp);
+            if (!date) {
+                return typeof timestamp === 'string' ? timestamp.split('T')[0] : 'N/A';
             }
+            return date.toLocaleString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function parseCsvTimestamp(value) {
+            if (!value) return null;
+
+            let normalized = String(value).trim();
+            if (!normalized) return null;
+
+            if (!normalized.includes('T') && normalized.includes(' ')) {
+                normalized = normalized.replace(' ', 'T');
+            }
+
+            normalized = normalized.replace(/([+-]\d{2})(\d{2})$/, '$1:$2');
+            normalized = normalized.replace(/\.(\d{3})\d+(?=(Z|[+-]\d{2}:\d{2})$)/, '.$1');
+
+            let parsed = new Date(normalized);
+            if (!Number.isNaN(parsed.getTime())) {
+                return parsed;
+            }
+
+            normalized = normalized.replace(/\.\d+(?=(Z|[+-]\d{2}:\d{2})$)/, '');
+            parsed = new Date(normalized);
+            return Number.isNaN(parsed.getTime()) ? null : parsed;
         }
 
         function calculateMedian(arr) {
@@ -741,12 +763,12 @@
 
                 const parsed = data.map(row => {
                     const duration = parseFloat(row.duration_minutes);
-                    const timestamp = new Date(row.timestamp_local);
+                    const timestamp = parseCsvTimestamp(row.timestamp_local);
                     return {
                         duration,
                         timestamp
                     };
-                }).filter(row => !Number.isNaN(row.duration) && !Number.isNaN(row.timestamp.getTime()));
+                }).filter(row => !Number.isNaN(row.duration) && row.timestamp);
 
                 if (!parsed.length) {
                     renderPlaceholder('chart-timeseries', 'No valid data points.');
