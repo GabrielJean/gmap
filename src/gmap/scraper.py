@@ -22,6 +22,7 @@ import json
 import os
 import re
 import statistics
+import time
 from collections import defaultdict
 from datetime import datetime, timezone, tzinfo, timedelta, date
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -754,8 +755,11 @@ def main() -> None:
 	}
 
 	urls = load_urls()
+	cycle_started = time.monotonic()
+	log_message(f"[scraper] Cycle start; {len(urls)} route(s) configured")
 
 	results: List[Dict[str, Optional[Any]]] = []
+	missing_duration_count = 0
 	now_utc = datetime.now(timezone.utc)
 	local_dt = now_utc.astimezone(LOCAL_TZ)
 	timestamp_local = local_dt.isoformat()
@@ -779,6 +783,9 @@ def main() -> None:
 		for idx, entry in enumerate(urls):
 			slug = safe_slug(entry, idx)
 			url_slugs.append(slug)
+			log_message(
+				f"[scraper] Route {idx + 1}/{len(urls)} start: '{entry.name}' ({entry.direction})"
+			)
 			try:
 				result = scrape_page(page, entry.url, selectors)
 			except Exception as exc:
@@ -823,12 +830,22 @@ def main() -> None:
 							duration_text = fragments[best_idx]
 					if duration_minutes is None:
 						snap = snapshot_text(page)
+						missing_duration_count += 1
 						log_snapshot(
 							entry,
 							f"Missing duration after retry for '{entry.name}' ({entry.direction}) url={entry.url}; "
 							f"raw_first={result.get('duration')} raw_retry={retry_duration_text} "
 							f"card_text_fragment={derived_fragment} snapshot='{snap}'"
 						)
+			if duration_minutes is None:
+				log_message(
+					f"[scraper] Route {idx + 1}/{len(urls)} done: '{entry.name}' ({entry.direction}) duration=missing"
+				)
+			else:
+				log_message(
+					f"[scraper] Route {idx + 1}/{len(urls)} done: '{entry.name}' ({entry.direction}) "
+					f"duration={duration_minutes:.1f} min"
+				)
 			result["duration_minutes"] = duration_minutes
 			result.pop("duration", None)
 			write_outputs_for_result(result, entry, slug)
@@ -839,6 +856,11 @@ def main() -> None:
 	# Per-run combined outputs and manifests removed; history lives in per-URL CSVs only.
 
 	generate_all_graphs()
+	elapsed = time.monotonic() - cycle_started
+	log_message(
+		f"[scraper] Cycle complete; wrote {len(results)} row(s), missing_duration={missing_duration_count}, "
+		f"elapsed={elapsed:.1f}s"
+	)
 
 	print(f"Wrote {len(results)} rows (per-URL CSV histories only)")
 
