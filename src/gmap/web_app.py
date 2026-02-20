@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import json
 import csv
+import io
 import os
+import shutil
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Any, Optional
 
-from flask import Flask, render_template, jsonify, send_file, abort
+from flask import Flask, render_template, jsonify, send_file, abort, request
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
@@ -239,6 +241,124 @@ def api_logs():
         print(f"Error reading logs: {e}")
 
     return jsonify(logs)
+
+
+def _resolve_csv_path(csv_path: str) -> Path:
+    """Resolve and validate a CSV path relative to OUTPUT_DIR."""
+    full_path = OUTPUT_DIR / csv_path
+    if not full_path.exists() or not full_path.is_file():
+        abort(404)
+    try:
+        full_path.resolve().relative_to(OUTPUT_DIR.resolve())
+    except ValueError:
+        abort(403)
+    if full_path.suffix != '.csv':
+        abort(400)
+    return full_path
+
+
+@app.route('/api/csv/raw/<path:csv_path>')
+def api_csv_raw(csv_path: str):
+    """Return ALL rows from a CSV as JSON (no limit) for the editor."""
+    full_path = _resolve_csv_path(csv_path)
+    data = read_csv_data(full_path, limit=999_999)
+    # Also return the column order from the header
+    headers: List[str] = []
+    try:
+        with full_path.open() as f:
+            reader = csv.reader(f)
+            headers = next(reader, [])
+    except Exception:
+        pass
+    return jsonify({"headers": headers, "rows": data})
+
+
+@app.route('/api/csv/save/<path:csv_path>', methods=['POST'])
+def api_csv_save(csv_path: str):
+    """Save edited CSV data.  Expects JSON body: {headers: [...], rows: [{...}, ...]}."""
+    full_path = _resolve_csv_path(csv_path)
+
+    body = request.get_json(silent=True)
+    if not body or 'headers' not in body or 'rows' not in body:
+        return jsonify({"error": "Invalid request body; need {headers, rows}"}), 400
+
+    headers: List[str] = body['headers']
+    rows: List[Dict[str, Any]] = body['rows']
+
+    if not headers:
+        return jsonify({"error": "Headers list is empty"}), 400
+
+    # Create a timestamped backup before overwriting.
+    backup_dir = OUTPUT_DIR / "_backups"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+    backup_name = f"{full_path.stem}-{ts}.csv"
+    shutil.copy2(str(full_path), str(backup_dir / backup_name))
+
+    # Keep only the 30 most recent backups for this CSV.
+    prefix = full_path.stem + "-"
+    all_backups = sorted(
+        [p for p in backup_dir.glob(f"{prefix}*.csv")],
+        key=lambda p: p.stat().st_mtime,
+    )
+    for old in all_backups[:-30]:
+        old.unlink(missing_ok=True)
+
+    # Write the new CSV atomically (write to temp then rename).
+    tmp_path = full_path.with_suffix('.csv.tmp')
+    try:
+        with tmp_path.open('w', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=headers)
+            writer.writeheader()
+            for row in rows:
+                writer.writerow({h: row.get(h, '') for h in headers})
+        tmp_path.replace(full_path)
+    except Exception as e:
+        tmp_path.unlink(missing_ok=True)
+        return jsonify({"error": f"Failed to write CSV: {e}"}), 500
+
+    return jsonify({"ok": True, "rows_written": len(rows), "backup": backup_name})
+
+
+@app.route('/api/csv/delete-rows/<path:csv_path>', methods=['POST'])
+def api_csv_delete_rows(csv_path: str):
+    """Delete rows by index.  Expects JSON body: {indices: [0, 3, 5]}."""
+    full_path = _resolve_csv_path(csv_path)
+
+    body = request.get_json(silent=True)
+    if not body or 'indices' not in body:
+        return jsonify({"error": "Invalid request body; need {indices}"}), 400
+
+    indices_to_delete = set(body['indices'])
+
+    # Read existing data.
+    headers: List[str] = []
+    rows: List[Dict[str, Any]] = []
+    with full_path.open() as f:
+        reader = csv.DictReader(f)
+        headers = reader.fieldnames or []
+        rows = list(reader)
+
+    # Backup before modifying.
+    backup_dir = OUTPUT_DIR / "_backups"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+    shutil.copy2(str(full_path), str(backup_dir / f"{full_path.stem}-{ts}.csv"))
+
+    new_rows = [r for i, r in enumerate(rows) if i not in indices_to_delete]
+
+    tmp_path = full_path.with_suffix('.csv.tmp')
+    try:
+        with tmp_path.open('w', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=headers)
+            writer.writeheader()
+            writer.writerows(new_rows)
+        tmp_path.replace(full_path)
+    except Exception as e:
+        tmp_path.unlink(missing_ok=True)
+        return jsonify({"error": f"Failed to write CSV: {e}"}), 500
+
+    return jsonify({"ok": True, "deleted": len(indices_to_delete), "remaining": len(new_rows)})
 
 
 if __name__ == '__main__':

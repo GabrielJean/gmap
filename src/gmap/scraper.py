@@ -327,24 +327,33 @@ def _extract_duration_from_aria(page: Page) -> Optional[str]:
 
 
 def _extract_duration_from_page_text(page: Page) -> Optional[str]:
-	"""Ultimate fallback: regex the visible page text for a duration pattern."""
+	"""Ultimate fallback: regex the visible page text for a duration pattern.
+
+	Collects ALL duration-like matches and returns the SHORTEST one.
+	On a Google Maps directions page the driving time is almost always the
+	shortest duration visible (compared to transit, walking, cycling, or
+	total trip estimates).
+	"""
 	try:
 		body = page.query_selector("body")
 		if not body:
 			return None
 		full_text = (body.inner_text() or "")
-		# Look for patterns like "38 min", "1 h 05 min", "1 hr 5 min" etc.
-		# Prefer the first match that appears (typically the best/fastest route).
 		patterns = [
 			r"(\d+\s*(?:h|hr|hrs|heure|heures)\s*\d{1,2}\s*(?:min|mins|minute|minutes)?)",
 			r"(\d+\s*(?:min|mins|minute|minutes))",
 		]
+		candidates: List[Tuple[float, str]] = []
 		for pat in patterns:
 			for match in re.finditer(pat, full_text, re.IGNORECASE):
 				candidate = match.group(1).strip()
 				val = parse_duration_minutes(candidate)
-				if val is not None and 1 <= val <= 600:  # sanity: 1 min to 10 hours
-					return candidate
+				if val is not None and 1 <= val <= 600:
+					candidates.append((val, candidate))
+		if candidates:
+			# Return the shortest plausible duration (most likely driving).
+			candidates.sort(key=lambda c: c[0])
+			return candidates[0][1]
 	except Exception:
 		pass
 	return None
@@ -381,6 +390,25 @@ def snapshot_text(page: Page) -> str:
 				flat = " ".join(text.split())
 				return flat[:800]
 	return ""
+
+
+def _save_debug_screenshot(page: Page, entry: "UrlEntry") -> Optional[Path]:
+	"""Save a screenshot for debugging when duration extraction fails."""
+	try:
+		screenshots_dir = OUTPUT_DIR / "debug_screenshots"
+		screenshots_dir.mkdir(parents=True, exist_ok=True)
+		name_part = clean_segment(entry.name)
+		dir_part = clean_segment(entry.direction)
+		ts_str = datetime.now(LOCAL_TZ).strftime("%Y%m%d-%H%M%S")
+		path = screenshots_dir / f"{name_part}-{dir_part}-{ts_str}.png"
+		page.screenshot(path=str(path), full_page=False)
+		# Only keep the 20 most recent screenshots to avoid filling disk.
+		all_shots = sorted(screenshots_dir.glob("*.png"), key=lambda p: p.stat().st_mtime)
+		for old in all_shots[:-20]:
+			old.unlink(missing_ok=True)
+		return path
+	except Exception:
+		return None
 
 
 def write_url_manifest(entries: List[UrlEntry], slugs: List[str], timestamp: str) -> None:
@@ -784,9 +812,14 @@ def scrape_page(page: Page, url: str, selectors: Dict[str, Union[str, List[str]]
 	# Longer timeout because Google Maps can be slow; fall back to page load
 	page.goto(url, wait_until="load", timeout=60_000)
 
-	# Ensure at least one result card is present before scraping; ignore if missing
+	# Ensure at least one result card is present before scraping; ignore if missing.
+	# Try both old-style trip card IDs and broader selectors for newer Maps layouts.
 	try:
-		page.wait_for_selector("#section-directions-trip-0, #section-directions-trip-1", timeout=30_000)
+		page.wait_for_selector(
+			"#section-directions-trip-0, #section-directions-trip-1, "
+			"[data-trip-index], [class*='directions-trip']",
+			timeout=30_000,
+		)
 	except Exception:
 		pass
 
@@ -930,12 +963,17 @@ def main() -> None:
 							)
 					if duration_minutes is None:
 						snap = snapshot_text(page)
+						shot = _save_debug_screenshot(page, entry)
 						missing_duration_count += 1
 						log_snapshot(
 							entry,
 							f"Missing duration after ALL fallbacks for '{entry.name}' ({entry.direction}) url={entry.url}; "
 							f"raw_first={result.get('duration')} raw_retry={retry_duration_text} "
-							f"card_text_fragment={derived_fragment} snapshot='{snap}'"
+							f"card_text_fragment={derived_fragment} "
+							f"screenshot={shot} snapshot='{snap}'"
+						)
+						log_message(
+							f"[scraper] Saved debug screenshot to {shot} for '{entry.name}' ({entry.direction})"
 						)
 			if duration_minutes is None:
 				log_message(

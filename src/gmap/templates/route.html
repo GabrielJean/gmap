@@ -224,6 +224,68 @@
                 padding: 1.5rem;
             }
         }
+
+        /* ── CSV Editor ── */
+        .csv-section { margin-top: 2.5rem; }
+        .csv-toggle {
+            cursor: pointer; font-weight: 600; font-size: 1.1rem;
+            color: var(--accent-dark); list-style: none; user-select: none;
+            padding: 0.75rem 1rem; background: var(--panel); border: 1px solid var(--border);
+            border-radius: 12px; display: flex; align-items: center; gap: 0.5rem;
+        }
+        .csv-toggle::-webkit-details-marker { display: none; }
+        .csv-toggle::before { content: '▶'; font-size: 0.7rem; transition: transform 0.2s; }
+        details[open] > .csv-toggle::before { transform: rotate(90deg); }
+        .csv-editor-wrap {
+            margin-top: 0.75rem; background: var(--panel); border: 1px solid var(--border);
+            border-radius: 12px; overflow: hidden; box-shadow: 0 12px 28px rgba(15,23,42,0.05);
+        }
+        .csv-toolbar {
+            display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border); flex-wrap: wrap;
+        }
+        .csv-toolbar input[type="text"] {
+            flex: 1; min-width: 180px; padding: 0.4rem 0.6rem; border: 1px solid var(--border);
+            border-radius: 6px; font-family: inherit; font-size: 0.85rem;
+        }
+        .csv-btn {
+            padding: 0.4rem 0.9rem; border-radius: 6px; border: 1px solid var(--border);
+            font-family: inherit; font-size: 0.82rem; font-weight: 600; cursor: pointer;
+            background: var(--panel); color: var(--ink); transition: background 0.15s;
+        }
+        .csv-btn:hover { background: #f1f5f9; }
+        .csv-btn--primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .csv-btn--primary:hover { background: var(--accent-dark); }
+        .csv-btn--danger { color: #dc2626; border-color: #fca5a5; }
+        .csv-btn--danger:hover { background: #fef2f2; }
+        .csv-table-wrap { max-height: 600px; overflow: auto; }
+        .csv-table {
+            width: 100%; border-collapse: collapse; font-size: 0.82rem;
+        }
+        .csv-table th, .csv-table td {
+            padding: 0.35rem 0.6rem; border-bottom: 1px solid var(--border);
+            text-align: left; white-space: nowrap;
+        }
+        .csv-table th {
+            position: sticky; top: 0; background: #f8fafc; font-weight: 600;
+            font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;
+            color: var(--muted); z-index: 2;
+        }
+        .csv-table tr:hover { background: #f8fafc; }
+        .csv-table tr.csv-row--selected { background: #e0f2fe; }
+        .csv-table tr.csv-row--dirty { background: #fefce8; }
+        .csv-table td[contenteditable] { cursor: text; }
+        .csv-table td[contenteditable]:focus {
+            outline: 2px solid var(--accent); outline-offset: -2px; background: #fff;
+        }
+        .csv-table td.csv-cell--empty { color: var(--muted); font-style: italic; }
+        .csv-status {
+            padding: 0.5rem 1rem; font-size: 0.8rem; color: var(--muted);
+            border-top: 1px solid var(--border); display: flex; justify-content: space-between;
+        }
+        .csv-page-controls {
+            display: flex; align-items: center; gap: 0.5rem;
+        }
     </style>
 </head>
 <body>
@@ -308,6 +370,31 @@
                     </details>
                 </div>
             </div>
+        </section>
+
+        <!-- CSV Editor -->
+        <section class="csv-section">
+            <details id="csv-details">
+                <summary class="csv-toggle">Raw CSV data</summary>
+                <div class="csv-editor-wrap">
+                    <div class="csv-toolbar">
+                        <input type="text" id="csv-search" placeholder="Filter rows…">
+                        <button class="csv-btn csv-btn--danger" id="csv-delete-btn" disabled>Delete selected</button>
+                        <button class="csv-btn csv-btn--primary" id="csv-save-btn" disabled>Save changes</button>
+                    </div>
+                    <div class="csv-table-wrap" id="csv-table-wrap">
+                        <p style="padding:1rem;color:var(--muted)">Loading CSV data…</p>
+                    </div>
+                    <div class="csv-status" id="csv-status">
+                        <span id="csv-status-text">–</span>
+                        <div class="csv-page-controls">
+                            <button class="csv-btn" id="csv-prev">← Prev</button>
+                            <span id="csv-page-label">–</span>
+                            <button class="csv-btn" id="csv-next">Next →</button>
+                        </div>
+                    </div>
+                </div>
+            </details>
         </section>
     </main>
 
@@ -1158,6 +1245,223 @@
         }
 
         loadRoute();
+
+        /* ═══════════════════════════════════════════
+           CSV Editor
+           ═══════════════════════════════════════════ */
+        (function csvEditor() {
+            const PAGE_SIZE = 100;
+            let allHeaders = [];
+            let allRows = [];       // master data (array of plain objects)
+            let filtered = [];      // indices into allRows after search
+            let dirty = new Set();  // indices that were edited
+            let selected = new Set();
+            let page = 0;
+            let loaded = false;
+
+            const wrapEl   = document.getElementById('csv-table-wrap');
+            const searchEl = document.getElementById('csv-search');
+            const saveBtn  = document.getElementById('csv-save-btn');
+            const delBtn   = document.getElementById('csv-delete-btn');
+            const statusEl = document.getElementById('csv-status-text');
+            const pageLabel = document.getElementById('csv-page-label');
+            const prevBtn  = document.getElementById('csv-prev');
+            const nextBtn  = document.getElementById('csv-next');
+            const details  = document.getElementById('csv-details');
+
+            // Lazy-load: fetch data only when the section is opened.
+            details.addEventListener('toggle', () => {
+                if (details.open && !loaded) loadCsvData();
+            });
+
+            async function loadCsvData() {
+                try {
+                    const res = await fetch(`/api/csv/raw/${routeInfo.csv_path}`);
+                    const json = await res.json();
+                    allHeaders = json.headers || [];
+                    allRows = json.rows || [];
+                    filtered = allRows.map((_, i) => i);
+                    loaded = true;
+                    dirty.clear();
+                    selected.clear();
+                    page = Math.max(0, Math.ceil(filtered.length / PAGE_SIZE) - 1); // start at last page (newest)
+                    render();
+                    statusEl.textContent = `${allRows.length} rows loaded`;
+                } catch (e) {
+                    wrapEl.innerHTML = `<p style="padding:1rem;color:#dc2626">Failed to load CSV: ${e.message}</p>`;
+                }
+            }
+
+            function applyFilter() {
+                const q = (searchEl.value || '').toLowerCase().trim();
+                if (!q) {
+                    filtered = allRows.map((_, i) => i);
+                } else {
+                    filtered = [];
+                    for (let i = 0; i < allRows.length; i++) {
+                        const row = allRows[i];
+                        const match = allHeaders.some(h => (row[h] || '').toLowerCase().includes(q));
+                        if (match) filtered.push(i);
+                    }
+                }
+                page = Math.max(0, Math.ceil(filtered.length / PAGE_SIZE) - 1);
+                render();
+            }
+            searchEl.addEventListener('input', applyFilter);
+
+            function totalPages() { return Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)); }
+
+            function render() {
+                const tp = totalPages();
+                if (page >= tp) page = tp - 1;
+                if (page < 0) page = 0;
+
+                const start = page * PAGE_SIZE;
+                const slice = filtered.slice(start, start + PAGE_SIZE);
+
+                let html = '<table class="csv-table"><thead><tr>';
+                html += '<th style="width:2.2rem"><input type="checkbox" id="csv-select-all"></th>';
+                html += '<th>#</th>';
+                for (const h of allHeaders) html += `<th>${esc(h)}</th>`;
+                html += '</tr></thead><tbody>';
+
+                for (const idx of slice) {
+                    const row = allRows[idx];
+                    const isDirty = dirty.has(idx);
+                    const isSel = selected.has(idx);
+                    const cls = [isDirty ? 'csv-row--dirty' : '', isSel ? 'csv-row--selected' : ''].join(' ');
+                    html += `<tr class="${cls}" data-idx="${idx}">`;
+                    html += `<td><input type="checkbox" class="csv-sel" data-idx="${idx}" ${isSel ? 'checked' : ''}></td>`;
+                    html += `<td style="color:var(--muted)">${idx}</td>`;
+                    for (const h of allHeaders) {
+                        const val = row[h] ?? '';
+                        const emptyCls = val === '' ? ' csv-cell--empty' : '';
+                        html += `<td contenteditable="true" class="csv-cell${emptyCls}" data-idx="${idx}" data-col="${esc(h)}">${esc(val) || '—'}</td>`;
+                    }
+                    html += '</tr>';
+                }
+                html += '</tbody></table>';
+                wrapEl.innerHTML = html;
+
+                // Pagination
+                pageLabel.textContent = `Page ${page + 1} / ${tp}`;
+                prevBtn.disabled = page === 0;
+                nextBtn.disabled = page >= tp - 1;
+
+                // Wire select-all
+                const selAll = document.getElementById('csv-select-all');
+                if (selAll) {
+                    selAll.checked = slice.length > 0 && slice.every(i => selected.has(i));
+                    selAll.addEventListener('change', () => {
+                        for (const i of slice) {
+                            if (selAll.checked) selected.add(i); else selected.delete(i);
+                        }
+                        updateButtons();
+                        render();
+                    });
+                }
+
+                // Wire individual checkboxes
+                wrapEl.querySelectorAll('.csv-sel').forEach(cb => {
+                    cb.addEventListener('change', () => {
+                        const i = Number(cb.dataset.idx);
+                        if (cb.checked) selected.add(i); else selected.delete(i);
+                        updateButtons();
+                        render();
+                    });
+                });
+
+                // Wire contenteditable cells
+                wrapEl.querySelectorAll('.csv-cell').forEach(td => {
+                    td.addEventListener('blur', () => {
+                        const i = Number(td.dataset.idx);
+                        const col = td.dataset.col;
+                        let newVal = td.textContent.trim();
+                        if (newVal === '—') newVal = '';
+                        if (allRows[i][col] !== newVal) {
+                            allRows[i][col] = newVal;
+                            dirty.add(i);
+                            updateButtons();
+                            td.closest('tr').classList.add('csv-row--dirty');
+                        }
+                    });
+                    td.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') { e.preventDefault(); td.blur(); }
+                        if (e.key === 'Escape') {
+                            const i = Number(td.dataset.idx);
+                            td.textContent = allRows[i][td.dataset.col] || '—';
+                            td.blur();
+                        }
+                    });
+                });
+
+                updateButtons();
+            }
+
+            function updateButtons() {
+                saveBtn.disabled = dirty.size === 0;
+                delBtn.disabled = selected.size === 0;
+                delBtn.textContent = selected.size ? `Delete selected (${selected.size})` : 'Delete selected';
+            }
+
+            prevBtn.addEventListener('click', () => { page--; render(); });
+            nextBtn.addEventListener('click', () => { page++; render(); });
+
+            // Save
+            saveBtn.addEventListener('click', async () => {
+                saveBtn.disabled = true;
+                saveBtn.textContent = 'Saving…';
+                try {
+                    const res = await fetch(`/api/csv/save/${routeInfo.csv_path}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ headers: allHeaders, rows: allRows })
+                    });
+                    const json = await res.json();
+                    if (!res.ok) throw new Error(json.error || 'Save failed');
+                    dirty.clear();
+                    render();
+                    statusEl.textContent = `Saved ${json.rows_written} rows (backup: ${json.backup})`;
+                } catch (e) {
+                    statusEl.textContent = `Save failed: ${e.message}`;
+                } finally {
+                    saveBtn.textContent = 'Save changes';
+                    updateButtons();
+                }
+            });
+
+            // Delete
+            delBtn.addEventListener('click', async () => {
+                const count = selected.size;
+                if (!confirm(`Delete ${count} row(s)? A backup will be created.`)) return;
+                delBtn.disabled = true;
+                delBtn.textContent = 'Deleting…';
+                try {
+                    const res = await fetch(`/api/csv/delete-rows/${routeInfo.csv_path}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ indices: [...selected] })
+                    });
+                    const json = await res.json();
+                    if (!res.ok) throw new Error(json.error || 'Delete failed');
+                    // Reload fresh data
+                    loaded = false;
+                    await loadCsvData();
+                    statusEl.textContent = `Deleted ${json.deleted} rows (${json.remaining} remaining)`;
+                } catch (e) {
+                    statusEl.textContent = `Delete failed: ${e.message}`;
+                } finally {
+                    delBtn.textContent = 'Delete selected';
+                    updateButtons();
+                }
+            });
+
+            function esc(s) {
+                const d = document.createElement('div');
+                d.textContent = String(s);
+                return d.innerHTML;
+            }
+        })();
     </script>
 </body>
 </html>
