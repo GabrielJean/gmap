@@ -379,6 +379,7 @@
                 <div class="csv-editor-wrap">
                     <div class="csv-toolbar">
                         <input type="text" id="csv-search" placeholder="Filter rows…">
+                        <button class="csv-btn csv-btn--danger" id="csv-clear-empty-btn">Clear empty durations</button>
                         <button class="csv-btn csv-btn--danger" id="csv-delete-btn" disabled>Delete selected</button>
                         <button class="csv-btn csv-btn--primary" id="csv-save-btn" disabled>Save changes</button>
                     </div>
@@ -1453,6 +1454,40 @@
                 } finally {
                     delBtn.textContent = 'Delete selected';
                     updateButtons();
+                }
+            });
+
+            // Clear rows with no duration recorded
+            const clearEmptyBtn = document.getElementById('csv-clear-empty-btn');
+            clearEmptyBtn.addEventListener('click', async () => {
+                const emptyIndices = [];
+                for (let i = 0; i < allRows.length; i++) {
+                    const val = (allRows[i]['duration_minutes'] ?? '').toString().trim();
+                    if (val === '' || val === '—') emptyIndices.push(i);
+                }
+                if (emptyIndices.length === 0) {
+                    statusEl.textContent = 'No rows with empty duration found.';
+                    return;
+                }
+                if (!confirm(`Delete ${emptyIndices.length} row(s) with no duration? A backup will be created.`)) return;
+                clearEmptyBtn.disabled = true;
+                clearEmptyBtn.textContent = 'Clearing…';
+                try {
+                    const res = await fetch(`/api/csv/delete-rows/${routeInfo.csv_path}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ indices: emptyIndices })
+                    });
+                    const json = await res.json();
+                    if (!res.ok) throw new Error(json.error || 'Delete failed');
+                    loaded = false;
+                    await loadCsvData();
+                    statusEl.textContent = `Cleared ${json.deleted} empty-duration rows (${json.remaining} remaining)`;
+                } catch (e) {
+                    statusEl.textContent = `Clear failed: ${e.message}`;
+                } finally {
+                    clearEmptyBtn.textContent = 'Clear empty durations';
+                    clearEmptyBtn.disabled = false;
                 }
             });
 
