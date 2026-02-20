@@ -789,27 +789,42 @@
                     return;
                 }
 
-                const parsed = data.map(row => {
+                const allRows = data.map(row => {
                     const duration = parseFloat(row.duration_minutes);
                     const timestamp = parseCsvTimestamp(row.timestamp_local);
                     return {
-                        duration,
+                        duration: Number.isNaN(duration) ? null : duration,
                         timestamp
                     };
-                }).filter(row => !Number.isNaN(row.duration) && row.timestamp)
+                }).filter(row => row.timestamp)
                     .sort((a, b) => a.timestamp - b.timestamp);
 
+                const totalRows = allRows.length;
+                const missingRows = allRows.filter(row => row.duration === null).length;
+                const parsed = allRows.filter(row => row.duration !== null);
+
                 if (!parsed.length) {
-                    renderPlaceholder('chart-timeseries', 'No valid data points.');
-                    renderPlaceholder('chart-commute', 'No valid data points.');
-                    renderPlaceholder('chart-daily', 'No valid data points.');
-                    renderPlaceholder('chart-hourly', 'No valid data points.');
-                    renderPlaceholder('chart-weekday', 'No valid data points.');
-                    renderPlaceholder('chart-hist', 'No valid data points.');
-                    renderStats([
+                    const missingMsg = missingRows > 0
+                        ? `No valid duration data. ${missingRows} of ${totalRows} rows have missing durations — selectors may be broken.`
+                        : 'No valid data points.';
+                    renderPlaceholder('chart-timeseries', missingMsg);
+                    renderPlaceholder('chart-commute', missingMsg);
+                    renderPlaceholder('chart-daily', missingMsg);
+                    renderPlaceholder('chart-hourly', missingMsg);
+                    renderPlaceholder('chart-weekday', missingMsg);
+                    renderPlaceholder('chart-hist', missingMsg);
+                    const statsItems = [
                         { label: 'Average (min)', value: 'N/A' },
-                        { label: 'Total records', value: 0 }
-                    ]);
+                        { label: 'Total records', value: totalRows }
+                    ];
+                    if (missingRows > 0) {
+                        statsItems.push({
+                            label: 'Missing durations',
+                            value: `${missingRows} / ${totalRows}`,
+                            note: 'Rows where the scraper could not extract a travel time. This usually means Google Maps changed their page layout.'
+                        });
+                    }
+                    renderStats(statsItems);
                     renderCommuteExplain({
                         headline: 'No commute window samples yet. Your commute insights will appear after a few runs.',
                         details: [
@@ -888,7 +903,7 @@
                     onTimeTarget
                 }));
 
-                renderStats([
+                const statsCards = [
                     {
                         label: 'Average (min)',
                         value: average ? average.toFixed(1) : 'N/A',
@@ -962,7 +977,15 @@
                         value: onTimeOverall !== null ? `${onTimeOverall.toFixed(0)}%` : 'N/A',
                         note: 'Share of commute-window trips that finish within the on-time threshold (median + 5 minutes).'
                     }
-                ]);
+                ];
+                if (missingRows > 0) {
+                    statsCards.push({
+                        label: 'Missing durations',
+                        value: `${missingRows} / ${totalRows}`,
+                        note: 'Rows where the scraper could not extract a travel time. This usually means Google Maps changed their page layout and selectors need updating.'
+                    });
+                }
+                renderStats(statsCards);
 
                 const downsampled = downsample(parsed, 1500);
 

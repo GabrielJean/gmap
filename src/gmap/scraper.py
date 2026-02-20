@@ -290,6 +290,66 @@ def scrape_duration_value(page: Page, selector: Union[str, List[str]]) -> Option
 	return None
 
 
+# Broad selectors used as fallbacks when the primary class-based selectors break
+# (Google rotates obfuscated class names frequently).  These target stable
+# structural / semantic attributes that survive DOM reshuffles.
+_DURATION_FALLBACK_SELECTORS: List[str] = [
+	# Trip cards by id prefix
+	"[id^='section-directions-trip-'] [jstcache] span",
+	# Headline-sized text inside trip cards (font role varies)
+	"[id^='section-directions-trip-'] [role='heading']",
+	"[id^='section-directions-trip-'] [data-value]",
+	# Aria labels that contain duration info
+	"[aria-label*='min']",
+	"[aria-label*='hour']",
+	"[aria-label*='heure']",
+]
+
+
+def _extract_duration_from_aria(page: Page) -> Optional[str]:
+	"""Try to extract a duration from aria-label attributes on trip cards."""
+	nodes = page.query_selector_all("[id^='section-directions-trip-']")
+	for node in nodes:
+		# Walk child elements looking for aria-label with time patterns
+		children = node.query_selector_all("[aria-label]")
+		for child in children:
+			label = (child.get_attribute("aria-label") or "").strip()
+			frag = extract_duration_fragment(label)
+			if frag and parse_duration_minutes(frag) is not None:
+				return frag
+	# Also check the aria-label on the trip card itself
+	for node in nodes:
+		label = (node.get_attribute("aria-label") or "").strip()
+		frag = extract_duration_fragment(label)
+		if frag and parse_duration_minutes(frag) is not None:
+			return frag
+	return None
+
+
+def _extract_duration_from_page_text(page: Page) -> Optional[str]:
+	"""Ultimate fallback: regex the visible page text for a duration pattern."""
+	try:
+		body = page.query_selector("body")
+		if not body:
+			return None
+		full_text = (body.inner_text() or "")
+		# Look for patterns like "38 min", "1 h 05 min", "1 hr 5 min" etc.
+		# Prefer the first match that appears (typically the best/fastest route).
+		patterns = [
+			r"(\d+\s*(?:h|hr|hrs|heure|heures)\s*\d{1,2}\s*(?:min|mins|minute|minutes)?)",
+			r"(\d+\s*(?:min|mins|minute|minutes))",
+		]
+		for pat in patterns:
+			for match in re.finditer(pat, full_text, re.IGNORECASE):
+				candidate = match.group(1).strip()
+				val = parse_duration_minutes(candidate)
+				if val is not None and 1 <= val <= 600:  # sanity: 1 min to 10 hours
+					return candidate
+	except Exception:
+		pass
+	return None
+
+
 def route_card_text(page: Page) -> Optional[str]:
 	"""Return flattened text from the first route card if present."""
 	node = page.query_selector("#section-directions-trip-0")
@@ -699,7 +759,7 @@ def generate_graph(csv_path: Path) -> Optional[Path]:
 	)
 	fig.text(0.02, 0.035, interpretation, ha="left", va="bottom", fontsize=8)
 
-	fig.tight_layout(rect=(0.02, 0.16, 0.78, 0.96))
+	fig.subplots_adjust(left=0.06, bottom=0.16, right=0.78, top=0.96)
 	img_path.parent.mkdir(parents=True, exist_ok=True)
 	fig.savefig(str(img_path), dpi=140)
 	plt.close(fig)
@@ -708,12 +768,15 @@ def generate_graph(csv_path: Path) -> Optional[Path]:
 
 def generate_all_graphs(output_dir: Path = OUTPUT_DIR) -> None:
 	"""Generate/refresh PNG graphs for every per-URL CSV."""
-	csv_paths: Iterable[Path] = output_dir.glob("*/*/*.csv")
-	for csv_path in csv_paths:
+	csv_paths: List[Path] = sorted(output_dir.glob("*/*/*.csv"))
+	log_message(f"[graphs] Starting graph generation for {len(csv_paths)} CSV file(s)")
+	for i, csv_path in enumerate(csv_paths, 1):
 		try:
 			generate_graph(csv_path)
+			log_message(f"[graphs] {i}/{len(csv_paths)} generated: {csv_path.stem}")
 		except Exception as exc:
-			log_message(f"Graph generation failed for {csv_path}: {exc}")
+			log_message(f"[graphs] {i}/{len(csv_paths)} FAILED for {csv_path}: {exc}")
+	log_message(f"[graphs] Graph generation complete ({len(csv_paths)} file(s))")
 
 
 def scrape_page(page: Page, url: str, selectors: Dict[str, Union[str, List[str]]]) -> Dict[str, Optional[Any]]:
@@ -831,12 +894,46 @@ def main() -> None:
 							best_idx = minutes_list.index(min(minutes_list))
 							duration_minutes = minutes_list[best_idx]
 							duration_text = fragments[best_idx]
+					# Fallback: try broad CSS selectors that don't depend on obfuscated class names
+					if duration_minutes is None:
+						for fallback_sel in _DURATION_FALLBACK_SELECTORS:
+							try:
+								nodes = page.query_selector_all(fallback_sel)
+								for node in nodes:
+									txt = (node.inner_text() or "").strip()
+									frag = extract_duration_fragment(txt)
+									if frag:
+										val = parse_duration_minutes(frag)
+										if val is not None:
+											duration_minutes = val
+											duration_text = frag
+											break
+							except Exception:
+								pass
+							if duration_minutes is not None:
+								break
+					# Fallback: try aria-label attributes
+					if duration_minutes is None:
+						aria_frag = _extract_duration_from_aria(page)
+						if aria_frag:
+							duration_minutes = parse_duration_minutes(aria_frag)
+							duration_text = aria_frag
+					# Ultimate fallback: regex the full visible page text
+					if duration_minutes is None:
+						page_frag = _extract_duration_from_page_text(page)
+						if page_frag:
+							duration_minutes = parse_duration_minutes(page_frag)
+							duration_text = page_frag
+							log_message(
+								f"[scraper] Duration recovered via full-page regex for '{entry.name}' "
+								f"({entry.direction}): '{page_frag}' = {duration_minutes} min"
+							)
 					if duration_minutes is None:
 						snap = snapshot_text(page)
 						missing_duration_count += 1
 						log_snapshot(
 							entry,
-							f"Missing duration after retry for '{entry.name}' ({entry.direction}) url={entry.url}; "
+							f"Missing duration after ALL fallbacks for '{entry.name}' ({entry.direction}) url={entry.url}; "
 							f"raw_first={result.get('duration')} raw_retry={retry_duration_text} "
 							f"card_text_fragment={derived_fragment} snapshot='{snap}'"
 						)
