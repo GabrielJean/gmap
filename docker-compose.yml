@@ -1,0 +1,9 @@
+services:
+  gmap:
+    image: gitea.docker-1.gwebs.ca/gabriel/gmap:latest
+    container_name: gmap
+    ports:
+      - "5000:5000"
+    volumes:
+      - /Apps/gmap:/app/data_runs
+    restart: unless-stopped

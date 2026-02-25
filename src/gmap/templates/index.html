@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GMap Traffic Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #f6f6f2;
+            --panel: #ffffff;
+            --ink: #0f172a;
+            --muted: #6b7280;
+            --accent: #0ea5a4;
+            --accent-dark: #0f766e;
+            --border: #e5e7eb;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Space Grotesk", sans-serif;
+            color: var(--ink);
+            background: radial-gradient(circle at top left, #e0f2f1 0%, #f6f6f2 45%, #fefce8 100%);
+            min-height: 100vh;
+        }
+
+        .header {
+            padding: 2.5rem 1.5rem 1.5rem;
+        }
+
+        .header-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.75rem 2rem;
+            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+        }
+
+        .title {
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .subtitle {
+            color: var(--muted);
+            margin-top: 0.35rem;
+            font-size: 1rem;
+        }
+
+        .header-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 1.25rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .pill {
+            background: #e0f2f1;
+            color: var(--accent-dark);
+            border-radius: 999px;
+            padding: 0.4rem 0.9rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .refresh-btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 0.6rem 1.1rem;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1.5rem 3rem;
+        }
+
+        .route-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .route-group {
+            display: contents;
+        }
+
+        .route-group-header {
+            grid-column: 1 / -1;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-top: 0.5rem;
+        }
+
+        .route-group-header:first-child {
+            margin-top: 0;
+        }
+
+        .route-group-name {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--ink);
+        }
+
+        .route-group-divider {
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        .route-group-count {
+            font-size: 0.75rem;
+            color: var(--muted);
+            background: #f1f5f9;
+            border-radius: 999px;
+            padding: 0.2rem 0.6rem;
+            font-weight: 500;
+        }
+
+        .route-card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+        }
+
+        .route-card--grouped {
+            border-top: 3px solid var(--accent);
+        }
+
+        .route-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        .route-direction {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            margin-top: 0.4rem;
+            background: #e0f2f1;
+            color: var(--accent-dark);
+            border-radius: 999px;
+            padding: 0.25rem 0.7rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+        }
+
+        .route-direction-arrow {
+            font-size: 0.9rem;
+        }
+
+        .route-stats {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.75rem;
+        }
+
+        .stat {
+            background: #f8fafc;
+            border-radius: 10px;
+            padding: 0.7rem;
+            border: 1px solid #eef2f7;
+        }
+
+        .stat-label {
+            font-size: 0.7rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .stat-value {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-top: 0.25rem;
+        }
+
+        .route-link {
+            margin-top: auto;
+            text-decoration: none;
+            text-align: center;
+            background: var(--ink);
+            color: white;
+            padding: 0.6rem 0.8rem;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+
+        .empty-state {
+            background: var(--panel);
+            border: 1px dashed var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            color: var(--muted);
+        }
+
+        details {
+            margin-top: 2rem;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+        }
+
+        summary {
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .logs-container {
+            margin-top: 1rem;
+            background: #0f172a;
+            color: #e2e8f0;
+            border-radius: 10px;
+            padding: 1rem;
+            font-family: "Courier New", monospace;
+            font-size: 0.85rem;
+            max-height: 320px;
+            overflow-y: auto;
+        }
+
+        @media (max-width: 640px) {
+            .header-inner {
+                padding: 1.5rem;
+            }
+
+            .route-stats {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-inner">
+            <div class="title">GMap Traffic Dashboard</div>
+            <div class="subtitle">Focused overview of each monitored route.</div>
+            <div class="header-row">
+                <span class="pill" id="config-status">Loading configuration...</span>
+                <button class="refresh-btn" onclick="location.reload()">Refresh data</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <div id="content">
+            <div class="empty-state">Loading data...</div>
+        </div>
+
+        <details>
+            <summary>Recent logs</summary>
+            <div class="logs-container" id="logs">Loading logs...</div>
+        </details>
+    </main>
+
+    <script>
+        let currentStructure = {};
+
+        async function loadData() {
+            try {
+                const response = await fetch('/api/structure');
+                currentStructure = await response.json();
+                renderRoutes();
+            } catch (error) {
+                document.getElementById('content').innerHTML =
+                    `<div class="empty-state">Error loading data: ${error.message}</div>`;
+            }
+        }
+
+        async function loadLogs() {
+            try {
+                const response = await fetch('/api/logs');
+                const logs = await response.json();
+                const logsContainer = document.getElementById('logs');
+
+                if (logs.length === 0) {
+                    logsContainer.textContent = 'No logs available.';
+                } else {
+                    logsContainer.innerHTML = logs.map(log =>
+                        `<div>${escapeHtml(log)}</div>`
+                    ).join('');
+                    logsContainer.scrollTop = logsContainer.scrollHeight;
+                }
+            } catch (error) {
+                document.getElementById('logs').textContent = `Error loading logs: ${error.message}`;
+            }
+        }
+
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/config');
+                const config = await response.json();
+                const statusEl = document.getElementById('config-status');
+
+                if (config.error) {
+                    statusEl.textContent = `Config error: ${config.error}`;
+                } else if (config.count > 0) {
+                    statusEl.textContent = `Monitoring ${config.count} route${config.count !== 1 ? 's' : ''}`;
+                } else {
+                    statusEl.textContent = 'No routes configured';
+                }
+            } catch (error) {
+                document.getElementById('config-status').textContent = 'Could not load configuration';
+            }
+        }
+
+        function renderRoutes() {
+            const content = document.getElementById('content');
+
+            if (Object.keys(currentStructure).length === 0) {
+                content.innerHTML = `
+                    <div class="empty-state">
+                        No data available yet. The scraper will populate routes after the first run.
+                    </div>
+                `;
+                return;
+            }
+
+            const groupedRoutes = new Map();
+
+            for (const [name, directions] of Object.entries(currentStructure)) {
+                for (const [direction, data] of Object.entries(directions)) {
+                    const sortMeta = getRouteSortMeta(name, direction);
+                    if (!groupedRoutes.has(sortMeta.pairKey)) {
+                        groupedRoutes.set(sortMeta.pairKey, {
+                            title: sortMeta.groupTitle,
+                            cards: []
+                        });
+                    }
+
+                    groupedRoutes.get(sortMeta.pairKey).cards.push({
+                        name,
+                        direction,
+                        data,
+                        sortMeta
+                    });
+                }
+            }
+
+            const sortedPairKeys = Array.from(groupedRoutes.keys()).sort((a, b) => a.localeCompare(b));
+
+            let html = '<div class="route-grid">';
+
+            for (const pairKey of sortedPairKeys) {
+                const group = groupedRoutes.get(pairKey);
+                const cards = group.cards.sort((left, right) => {
+                    const routeCompare = left.sortMeta.routeKey.localeCompare(right.sortMeta.routeKey);
+                    if (routeCompare !== 0) {
+                        return routeCompare;
+                    }
+                    return left.direction.localeCompare(right.direction);
+                });
+
+                if (cards.length > 1) {
+                    html += `
+                        <div class="route-group-header">
+                            <div class="route-group-name">${escapeHtml(group.title)}</div>
+                            <div class="route-group-count">${cards.length} ${cards.length === 1 ? 'direction' : 'directions'}</div>
+                            <div class="route-group-divider"></div>
+                        </div>
+                    `;
+                }
+
+                for (const card of cards) {
+                    const routeUrl = `/route/${encodeURIComponent(card.name)}/${encodeURIComponent(card.direction)}`;
+                    const cardClass = cards.length > 1 ? 'route-card route-card--grouped' : 'route-card';
+                    html += `
+                        <div class="${cardClass}">
+                            <div>
+                                ${cards.length === 1 ? `<div class="route-title">${escapeHtml(card.name)}</div>` : ''}
+                                <div class="route-direction"><span class="route-direction-arrow" aria-hidden="true">↗</span>${escapeHtml(card.direction)}</div>
+                            </div>
+                            <div class="route-stats">
+                                <div class="stat">
+                                    <div class="stat-label">Total Records</div>
+                                    <div class="stat-value">${card.data.row_count || 0}</div>
+                                </div>
+                                <div class="stat">
+                                    <div class="stat-label">Latest Update</div>
+                                    <div class="stat-value">${card.data.latest_timestamp ? formatTimestamp(card.data.latest_timestamp) : 'N/A'}</div>
+                                </div>
+                            </div>
+                            <a class="route-link" href="${routeUrl}">Open route</a>
+                        </div>
+                    `;
+                }
+            }
+
+            html += '</div>';
+            content.innerHTML = html;
+        }
+
+        function getRouteSortMeta(routeName, direction) {
+            const originalName = String(routeName || '').trim();
+            const normalizedName = originalName.toLowerCase();
+            const originalSegments = originalName.split('-to-').map(part => part.trim()).filter(Boolean);
+            const normalizedSegments = normalizedName.split('-to-').map(part => part.trim()).filter(Boolean);
+
+            if (normalizedSegments.length === 2 && originalSegments.length === 2) {
+                const [from, to] = normalizedSegments;
+                const [fromOriginal, toOriginal] = originalSegments;
+                const sorted = [from, to].sort((a, b) => a.localeCompare(b));
+                const sortedOriginal = [
+                    { key: from, label: formatRoutePlace(fromOriginal) },
+                    { key: to, label: formatRoutePlace(toOriginal) }
+                ].sort((a, b) => a.key.localeCompare(b.key));
+
+                return {
+                    pairKey: sorted.join('::'),
+                    routeKey: `${from}::${to}`,
+                    groupTitle: `${sortedOriginal[0].label} ↔ ${sortedOriginal[1].label}`
+                };
+            }
+
+            return {
+                pairKey: normalizedName,
+                routeKey: String(direction || '').toLowerCase().trim(),
+                groupTitle: formatRoutePlace(originalName)
+            };
+        }
+
+        function formatRoutePlace(value) {
+            return String(value || '')
+                .split('-')
+                .filter(Boolean)
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' ');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function parseCsvTimestamp(value) {
+            if (!value) return null;
+
+            let normalized = String(value).trim();
+            if (!normalized) return null;
+
+            if (!normalized.includes('T') && normalized.includes(' ')) {
+                normalized = normalized.replace(' ', 'T');
+            }
+
+            normalized = normalized.replace(/([+-]\d{2})(\d{2})$/, '$1:$2');
+            normalized = normalized.replace(/\.(\d{3})\d+/, '.$1');
+
+            let parsed = new Date(normalized);
+            if (!Number.isNaN(parsed.getTime())) {
+                return parsed;
+            }
+
+            normalized = normalized.replace(/\.\d+/, '');
+            parsed = new Date(normalized);
+            return Number.isNaN(parsed.getTime()) ? null : parsed;
+        }
+
+        function formatTimestamp(timestamp) {
+            try {
+                const date = parseCsvTimestamp(timestamp);
+                if (!date) {
+                    throw new Error('Invalid timestamp');
+                }
+                return date.toLocaleString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            } catch {
+                return typeof timestamp === 'string' ? timestamp.split('T')[0] : 'N/A';
+            }
+        }
+
+        loadData();
+        loadLogs();
+        loadConfig();
+
+        setInterval(() => {
+            loadData();
+            loadLogs();
+        }, 120000);
+    </script>
+</body>
+</html>

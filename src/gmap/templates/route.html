@@ -1,0 +1,1502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ name }} - {{ direction }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js" charset="utf-8"></script>
+    <style>
+        :root {
+            --bg: #f6f6f2;
+            --panel: #ffffff;
+            --ink: #0f172a;
+            --muted: #6b7280;
+            --accent: #0ea5a4;
+            --accent-dark: #0f766e;
+            --border: #e5e7eb;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Space Grotesk", sans-serif;
+            color: var(--ink);
+            background: radial-gradient(circle at top left, #e0f2f1 0%, #f6f6f2 45%, #fefce8 100%);
+            min-height: 100vh;
+        }
+
+        .header {
+            padding: 2.5rem 1.5rem 1.5rem;
+        }
+
+        .header-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.75rem 2rem;
+            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+        }
+
+        .back-link {
+            color: var(--accent-dark);
+            text-decoration: none;
+            font-weight: 600;
+            display: inline-block;
+            margin-bottom: 0.75rem;
+        }
+
+        .title {
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .subtitle {
+            color: var(--muted);
+            margin-top: 0.35rem;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .container {
+            max-width: 1320px;
+            margin: 0 auto;
+            padding: 0 1.5rem 3rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+
+        .stat-card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+        }
+
+        .stat-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--muted);
+        }
+
+        .stat-value {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-top: 0.35rem;
+        }
+
+        .stat-note {
+            margin-top: 0.65rem;
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.6rem 0.75rem;
+        }
+
+        .stat-note summary {
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--accent-dark);
+            list-style: none;
+            font-size: 0.8rem;
+        }
+
+        .stat-note summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .stat-note p {
+            margin-top: 0.45rem;
+            color: var(--muted);
+            line-height: 1.4;
+            font-size: 0.8rem;
+        }
+
+        .chart-section {
+            margin-top: 2rem;
+        }
+
+        .chart-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.6rem;
+        }
+
+        .chart-card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.05);
+            min-height: 320px;
+            width: 100%;
+        }
+
+        .chart-notes {
+            margin-top: 0.75rem;
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.85rem 1rem;
+        }
+
+        .chart-notes summary {
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--accent-dark);
+            list-style: none;
+        }
+
+        .chart-notes summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .chart-notes p {
+            margin-top: 0.6rem;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+
+        .chart-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 1.75rem;
+        }
+
+        .chart-block {
+            width: min(1200px, 100%);
+            max-width: 100%;
+        }
+
+        .chart-card .js-plotly-plot {
+            width: 100%;
+        }
+
+        .explain-card {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            color: var(--ink);
+        }
+
+        .explain-title {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .explain-list {
+            margin-top: 0.75rem;
+            color: var(--muted);
+            padding-left: 1.4rem;
+        }
+
+        .explain-list li {
+            margin: 0.35rem 0;
+        }
+
+        .placeholder {
+            color: var(--muted);
+            text-align: center;
+            padding: 2rem;
+        }
+
+        @media (max-width: 640px) {
+            .header-inner {
+                padding: 1.5rem;
+            }
+        }
+
+        /* ── CSV Editor ── */
+        .csv-section { margin-top: 2.5rem; }
+        .csv-toggle {
+            cursor: pointer; font-weight: 600; font-size: 1.1rem;
+            color: var(--accent-dark); list-style: none; user-select: none;
+            padding: 0.75rem 1rem; background: var(--panel); border: 1px solid var(--border);
+            border-radius: 12px; display: flex; align-items: center; gap: 0.5rem;
+        }
+        .csv-toggle::-webkit-details-marker { display: none; }
+        .csv-toggle::before { content: '▶'; font-size: 0.7rem; transition: transform 0.2s; }
+        details[open] > .csv-toggle::before { transform: rotate(90deg); }
+        .csv-editor-wrap {
+            margin-top: 0.75rem; background: var(--panel); border: 1px solid var(--border);
+            border-radius: 12px; overflow: hidden; box-shadow: 0 12px 28px rgba(15,23,42,0.05);
+        }
+        .csv-toolbar {
+            display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border); flex-wrap: wrap;
+        }
+        .csv-toolbar input[type="text"] {
+            flex: 1; min-width: 180px; padding: 0.4rem 0.6rem; border: 1px solid var(--border);
+            border-radius: 6px; font-family: inherit; font-size: 0.85rem;
+        }
+        .csv-btn {
+            padding: 0.4rem 0.9rem; border-radius: 6px; border: 1px solid var(--border);
+            font-family: inherit; font-size: 0.82rem; font-weight: 600; cursor: pointer;
+            background: var(--panel); color: var(--ink); transition: background 0.15s;
+        }
+        .csv-btn:hover { background: #f1f5f9; }
+        .csv-btn--primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .csv-btn--primary:hover { background: var(--accent-dark); }
+        .csv-btn--danger { color: #dc2626; border-color: #fca5a5; }
+        .csv-btn--danger:hover { background: #fef2f2; }
+        .csv-table-wrap { max-height: 600px; overflow: auto; }
+        .csv-table {
+            width: 100%; border-collapse: collapse; font-size: 0.82rem;
+        }
+        .csv-table th, .csv-table td {
+            padding: 0.35rem 0.6rem; border-bottom: 1px solid var(--border);
+            text-align: left; white-space: nowrap;
+        }
+        .csv-table th {
+            position: sticky; top: 0; background: #f8fafc; font-weight: 600;
+            font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;
+            color: var(--muted); z-index: 2;
+        }
+        .csv-table tr:hover { background: #f8fafc; }
+        .csv-table tr.csv-row--selected { background: #e0f2fe; }
+        .csv-table tr.csv-row--dirty { background: #fefce8; }
+        .csv-table td[contenteditable] { cursor: text; }
+        .csv-table td[contenteditable]:focus {
+            outline: 2px solid var(--accent); outline-offset: -2px; background: #fff;
+        }
+        .csv-table td.csv-cell--empty { color: var(--muted); font-style: italic; }
+        .csv-status {
+            padding: 0.5rem 1rem; font-size: 0.8rem; color: var(--muted);
+            border-top: 1px solid var(--border); display: flex; justify-content: space-between;
+        }
+        .csv-page-controls {
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-inner">
+            <a class="back-link" href="/">Back to dashboard</a>
+            <div class="title">{{ name }}</div>
+            <div class="subtitle">{{ direction }}</div>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="stats-grid" id="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Loading</div>
+                <div class="stat-value">...</div>
+            </div>
+        </section>
+
+        <section class="chart-section">
+            <div class="explain-card" id="commute-explain">
+                <div class="explain-title">How this impacts your commute (7-9 AM, 3-5 PM)</div>
+                <div>Loading commute summary...</div>
+            </div>
+        </section>
+
+        <section class="chart-section">
+            <div class="explain-card" id="commute-analysis">
+                <div class="explain-title">Commute impact analysis</div>
+                <div>Loading analysis...</div>
+            </div>
+        </section>
+
+        <section class="chart-section">
+            <div class="chart-grid">
+                <div class="chart-block">
+                    <div class="chart-title">Duration over time</div>
+                    <div class="chart-card" id="chart-timeseries"></div>
+                    <details class="chart-notes">
+                        <summary>What this shows</summary>
+                        <p>Every sample over time. Use zoom to inspect specific days or weeks. Rising bands mean the route is trending slower; tighter bands mean more consistent commutes.</p>
+                    </details>
+                </div>
+                <div class="chart-block">
+                    <div class="chart-title">Commute windows: P50 / P90 / P95</div>
+                    <div class="chart-card" id="chart-commute"></div>
+                    <details class="chart-notes">
+                        <summary>What this shows</summary>
+                        <p>Median and bad-day percentiles for each commute window. Lower P50 is typical speed; lower P90/P95 means fewer nasty surprises.</p>
+                    </details>
+                </div>
+                <div class="chart-block">
+                    <div class="chart-title">Commute window trend (daily P50 / P90)</div>
+                    <div class="chart-card" id="chart-daily"></div>
+                    <details class="chart-notes">
+                        <summary>What this shows</summary>
+                        <p>Day-by-day medians and P90s for the morning and afternoon windows. Use it to spot improving or worsening trends over months.</p>
+                    </details>
+                </div>
+                <div class="chart-block">
+                    <div class="chart-title">Median by 15-minute slot (commute windows)</div>
+                    <div class="chart-card" id="chart-hourly"></div>
+                    <details class="chart-notes">
+                        <summary>What this shows</summary>
+                        <p>Median commute time for each 15-minute slot in your 7-9 AM and 3-5 PM windows. The lowest bars show the best time to leave inside those windows.</p>
+                    </details>
+                </div>
+                <div class="chart-block">
+                    <div class="chart-title">On-time rate by weekday (commute windows)</div>
+                    <div class="chart-card" id="chart-weekday"></div>
+                    <details class="chart-notes">
+                        <summary>What this shows</summary>
+                        <p>Share of trips that finish within the on-time threshold (median + 5 minutes). Higher bars mean that weekday is more reliable for commuting.</p>
+                    </details>
+                </div>
+                <div class="chart-block">
+                    <div class="chart-title">Commute window distribution</div>
+                    <div class="chart-card" id="chart-hist"></div>
+                    <details class="chart-notes">
+                        <summary>What this shows</summary>
+                        <p>Spread of commute times for morning vs afternoon. Narrower boxes mean steadier travel; higher boxes mean that window is usually slower.</p>
+                    </details>
+                </div>
+            </div>
+        </section>
+
+        <!-- CSV Editor -->
+        <section class="csv-section">
+            <details id="csv-details">
+                <summary class="csv-toggle">Raw CSV data</summary>
+                <div class="csv-editor-wrap">
+                    <div class="csv-toolbar">
+                        <input type="text" id="csv-search" placeholder="Filter rows…">
+                        <button class="csv-btn csv-btn--danger" id="csv-clear-empty-btn">Clear empty durations</button>
+                        <button class="csv-btn csv-btn--danger" id="csv-delete-btn" disabled>Delete selected</button>
+                        <button class="csv-btn csv-btn--primary" id="csv-save-btn" disabled>Save changes</button>
+                    </div>
+                    <div class="csv-table-wrap" id="csv-table-wrap">
+                        <p style="padding:1rem;color:var(--muted)">Loading CSV data…</p>
+                    </div>
+                    <div class="csv-status" id="csv-status">
+                        <span id="csv-status-text">–</span>
+                        <div class="csv-page-controls">
+                            <button class="csv-btn" id="csv-prev">← Prev</button>
+                            <span id="csv-page-label">–</span>
+                            <button class="csv-btn" id="csv-next">Next →</button>
+                        </div>
+                    </div>
+                </div>
+            </details>
+        </section>
+    </main>
+
+    <script>
+        const routeInfo = {{ data | tojson }};
+        const routeName = {{ name | tojson }};
+        const routeDirection = {{ direction | tojson }};
+
+        function formatTimestamp(timestamp) {
+            const date = timestamp instanceof Date ? timestamp : parseCsvTimestamp(timestamp);
+            if (!date) {
+                return typeof timestamp === 'string' ? timestamp.split('T')[0] : 'N/A';
+            }
+            return date.toLocaleString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function parseCsvTimestamp(value) {
+            if (!value) return null;
+
+            let normalized = String(value).trim();
+            if (!normalized) return null;
+
+            if (!normalized.includes('T') && normalized.includes(' ')) {
+                normalized = normalized.replace(' ', 'T');
+            }
+
+            normalized = normalized.replace(/\/(\d{1,2})\/(\d{1,2})\/(\d{4})/, '$3-$1-$2');
+            normalized = normalized.replace(/([+-]\d{2})(\d{2})$/, '$1:$2');
+            normalized = normalized.replace(/\.(\d{3})\d+/, '.$1');
+
+            let parsed = new Date(normalized);
+            if (!Number.isNaN(parsed.getTime())) {
+                return parsed;
+            }
+
+            normalized = normalized.replace(/\.\d+/, '');
+            parsed = new Date(normalized);
+            if (!Number.isNaN(parsed.getTime())) {
+                return parsed;
+            }
+
+            const match = normalized.match(
+                /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/
+            );
+            if (!match) {
+                return null;
+            }
+
+            const [, year, month, day, hour, minute, second = '0'] = match;
+            const fallback = new Date(
+                Number(year),
+                Number(month) - 1,
+                Number(day),
+                Number(hour),
+                Number(minute),
+                Number(second)
+            );
+            return Number.isNaN(fallback.getTime()) ? null : fallback;
+        }
+
+        function localDateKey(timestamp) {
+            const y = timestamp.getFullYear();
+            const m = String(timestamp.getMonth() + 1).padStart(2, '0');
+            const d = String(timestamp.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        function calculateMedian(arr) {
+            if (!arr.length) return null;
+            const sorted = [...arr].sort((a, b) => a - b);
+            const mid = Math.floor(sorted.length / 2);
+            return sorted.length % 2 === 0
+                ? (sorted[mid - 1] + sorted[mid]) / 2
+                : sorted[mid];
+        }
+
+        function calculateAverage(arr) {
+            if (!arr.length) return null;
+            const total = arr.reduce((sum, value) => sum + value, 0);
+            return total / arr.length;
+        }
+
+        function calculatePercentile(arr, percentile) {
+            if (!arr.length) return null;
+            const sorted = [...arr].sort((a, b) => a - b);
+            const index = (percentile / 100) * (sorted.length - 1);
+            const lower = Math.floor(index);
+            const upper = Math.ceil(index);
+            const weight = index % 1;
+
+            if (lower === upper) {
+                return sorted[lower];
+            }
+
+            return sorted[lower] * (1 - weight) + sorted[upper] * weight;
+        }
+
+        function calculateIqr(arr) {
+            if (!arr.length) return null;
+            const p75 = calculatePercentile(arr, 75);
+            const p25 = calculatePercentile(arr, 25);
+            if (p75 === null || p25 === null) return null;
+            return p75 - p25;
+        }
+
+        function downsample(data, maxPoints) {
+            if (data.length <= maxPoints) return data;
+            const step = Math.ceil(data.length / maxPoints);
+            return data.filter((_, index) => index % step === 0);
+        }
+
+        function renderStats(stats) {
+            const grid = document.getElementById('stats-grid');
+            grid.innerHTML = stats.map(stat => `
+                <div class="stat-card">
+                    <div class="stat-label">${stat.label}</div>
+                    <div class="stat-value">${stat.value}</div>
+                    ${stat.note ? `
+                        <details class="stat-note">
+                            <summary>What this means</summary>
+                            <p>${stat.note}</p>
+                        </details>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+
+        function renderPlaceholder(id, message) {
+            const el = document.getElementById(id);
+            el.innerHTML = `<div class="placeholder">${message}</div>`;
+        }
+
+        function renderCommuteExplain(summary) {
+            const el = document.getElementById('commute-explain');
+            el.innerHTML = `
+                <div class="explain-title">How this impacts your commute (7-9 AM, 3-5 PM)</div>
+                <div>${summary.headline}</div>
+                <ul class="explain-list">
+                    ${summary.details.map(item => `<li>${item}</li>`).join('')}
+                </ul>
+            `;
+        }
+
+        function renderCommuteAnalysis(summary) {
+            const el = document.getElementById('commute-analysis');
+            el.innerHTML = `
+                <div class="explain-title">Commute impact analysis</div>
+                <div>${summary.headline}</div>
+                <ul class="explain-list">
+                    ${summary.details.map(item => `<li>${item}</li>`).join('')}
+                </ul>
+            `;
+        }
+
+        function buildDailyMedians(rows) {
+            const bucket = {};
+            rows.forEach(row => {
+                const dateKey = localDateKey(row.timestamp);
+                if (!bucket[dateKey]) {
+                    bucket[dateKey] = [];
+                }
+                bucket[dateKey].push(row.duration);
+            });
+
+            const dates = [];
+            const medians = [];
+            Object.keys(bucket).sort().forEach(dateKey => {
+                dates.push(dateKey);
+                medians.push(calculateMedian(bucket[dateKey]));
+            });
+
+            return { dates, medians };
+        }
+
+        function buildCommuteDailyStats(rows, startHour, endHour) {
+            const bucket = {};
+            rows.forEach(row => {
+                const hour = row.timestamp.getHours();
+                if (hour < startHour || hour >= endHour) return;
+                const dateKey = localDateKey(row.timestamp);
+                if (!bucket[dateKey]) {
+                    bucket[dateKey] = [];
+                }
+                bucket[dateKey].push(row.duration);
+            });
+
+            const dates = [];
+            const medians = [];
+            const p90s = [];
+            Object.keys(bucket).sort().forEach(dateKey => {
+                const values = bucket[dateKey];
+                dates.push(dateKey);
+                medians.push(calculateMedian(values));
+                p90s.push(calculatePercentile(values, 90));
+            });
+
+            return { dates, medians, p90s };
+        }
+
+        function buildHourlyMedians(rows) {
+            const bucket = Array.from({ length: 24 }, () => []);
+            rows.forEach(row => {
+                bucket[row.timestamp.getHours()].push(row.duration);
+            });
+            const labels = bucket.map((_, idx) => `${idx}`.padStart(2, '0'));
+            const medians = bucket.map(values => calculateMedian(values));
+            return { labels, medians };
+        }
+
+        function buildCommuteHourlyMedians(rows) {
+            const formatSlotLabel = totalMinutes => {
+                const hour = Math.floor(totalMinutes / 60);
+                const minute = totalMinutes % 60;
+                return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+            };
+
+            const slots = [];
+            for (let minute = 0; minute < 120; minute += 15) {
+                const start = 7 * 60 + minute;
+                slots.push({
+                    start,
+                    label: formatSlotLabel(start),
+                    values: []
+                });
+            }
+            for (let minute = 0; minute < 120; minute += 15) {
+                const start = 15 * 60 + minute;
+                slots.push({
+                    start,
+                    label: formatSlotLabel(start),
+                    values: []
+                });
+            }
+
+            rows.forEach(row => {
+                const hour = row.timestamp.getHours();
+                const minute = row.timestamp.getMinutes();
+                const totalMinutes = hour * 60 + minute;
+                const inMorning = totalMinutes >= 7 * 60 && totalMinutes < 9 * 60;
+                const inAfternoon = totalMinutes >= 15 * 60 && totalMinutes < 17 * 60;
+                if (!inMorning && !inAfternoon) return;
+                const slotStart = Math.floor(totalMinutes / 15) * 15;
+                const slot = slots.find(item => item.start === slotStart);
+                if (slot) {
+                    slot.values.push(row.duration);
+                }
+            });
+
+            return {
+                labels: slots.map(slot => slot.label),
+                medians: slots.map(slot => calculateMedian(slot.values))
+            };
+        }
+
+        function buildWeekdayMedians(rows) {
+            const bucket = Array.from({ length: 7 }, () => []);
+            rows.forEach(row => {
+                bucket[row.timestamp.getDay()].push(row.duration);
+            });
+            const labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const medians = bucket.map(values => calculateMedian(values));
+            return { labels, medians };
+        }
+
+        function buildCommuteWeekdayMedians(rows) {
+            const bucket = Array.from({ length: 7 }, () => []);
+            rows.forEach(row => {
+                const hour = row.timestamp.getHours();
+                if ((hour >= 7 && hour < 9) || (hour >= 15 && hour < 17)) {
+                    bucket[row.timestamp.getDay()].push(row.duration);
+                }
+            });
+            const labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const medians = bucket.map(values => calculateMedian(values));
+            return { labels, medians };
+        }
+
+        function buildCommuteWeekdayOnTime(rows, targetMinutes) {
+            const bucket = Array.from({ length: 7 }, () => []);
+            rows.forEach(row => {
+                const hour = row.timestamp.getHours();
+                if ((hour >= 7 && hour < 9) || (hour >= 15 && hour < 17)) {
+                    bucket[row.timestamp.getDay()].push(row.duration);
+                }
+            });
+            const labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const rates = bucket.map(values => {
+                if (!values.length) return null;
+                const onTime = values.filter(value => value <= targetMinutes).length;
+                return (onTime / values.length) * 100;
+            });
+            return { labels, rates };
+        }
+
+        function commuteSummary(morningValues, afternoonValues) {
+            const morningMedian = calculateMedian(morningValues);
+            const afternoonMedian = calculateMedian(afternoonValues);
+            const bestMedian = calculateMedian([...morningValues, ...afternoonValues]);
+
+            if (!morningValues.length && !afternoonValues.length) {
+                return {
+                    headline: 'No commute window samples yet. Your commute insights will appear after a few runs.',
+                    details: [
+                        'We only evaluate 7-9 AM and 3-5 PM for this summary.',
+                        'Check back after the scraper runs during commute hours.'
+                    ]
+                };
+            }
+
+            const morningText = morningValues.length
+                ? `Morning (7-9 AM) median: ${morningMedian.toFixed(1)} min from ${morningValues.length} samples.`
+                : 'Morning (7-9 AM) has no samples yet.';
+            const afternoonText = afternoonValues.length
+                ? `Afternoon (3-5 PM) median: ${afternoonMedian.toFixed(1)} min from ${afternoonValues.length} samples.`
+                : 'Afternoon (3-5 PM) has no samples yet.';
+            const differenceText = morningValues.length && afternoonValues.length
+                ? `Afternoon is ${Math.abs(afternoonMedian - morningMedian).toFixed(1)} min ${afternoonMedian > morningMedian ? 'slower' : 'faster'} than morning.`
+                : 'Compare both windows once each has samples.';
+
+            return {
+                headline: `Typical commute time right now: ${bestMedian ? bestMedian.toFixed(1) : 'N/A'} minutes.`,
+                details: [morningText, afternoonText, differenceText]
+            };
+        }
+
+        function commuteAnalysis({
+            commuteValues,
+            morningValues,
+            afternoonValues,
+            offpeakValues,
+            spikeTimestamps,
+            bestWindow,
+            onTimeTarget
+        }) {
+            if (!commuteValues.length) {
+                return {
+                    headline: 'No commute-window samples yet to analyze impact.',
+                    details: [
+                        'We only evaluate 7-9 AM and 3-5 PM for this analysis.',
+                        'Check back after more commute-hour runs.'
+                    ]
+                };
+            }
+
+            const commuteMedian = calculateMedian(commuteValues);
+            const commuteP90 = calculatePercentile(commuteValues, 90);
+            const offpeakMedian = offpeakValues.length ? calculateMedian(offpeakValues) : null;
+
+            const morningMedian = morningValues.length ? calculateMedian(morningValues) : null;
+            const afternoonMedian = afternoonValues.length ? calculateMedian(afternoonValues) : null;
+            let recommendation = 'Not enough data to recommend a window.';
+            if (morningMedian !== null && afternoonMedian !== null) {
+                recommendation = morningMedian <= afternoonMedian
+                    ? `Best bet: Morning commute (7-9 AM) is typically ${
+                        (afternoonMedian - morningMedian).toFixed(1)
+                    } min faster.`
+                    : `Best bet: Afternoon commute (3-5 PM) is typically ${
+                        (morningMedian - afternoonMedian).toFixed(1)
+                    } min faster.`;
+            }
+
+            const spikeCount = spikeTimestamps.length;
+            const lastSpike = spikeCount ? formatTimestamp(spikeTimestamps[spikeCount - 1].toISOString()) : 'None';
+            const spikeText = spikeCount
+                ? `${spikeCount} commute spikes detected (last: ${lastSpike}).`
+                : 'No commute spikes detected in this dataset.';
+
+            const peakVsOffpeak = offpeakMedian !== null
+                ? `Commute windows are about ${(commuteMedian - offpeakMedian).toFixed(1)} min ${
+                    commuteMedian > offpeakMedian ? 'slower' : 'faster'
+                } than off-peak.`
+                : 'Off-peak comparison will appear once off-peak samples exist.';
+
+            const bestWindowText = bestWindow
+                ? `Best time to leave: ${bestWindow.label} (median ${bestWindow.median.toFixed(1)} min across ${bestWindow.count} samples).`
+                : 'Best time to leave needs more commute samples.';
+
+            const onTimeText = onTimeTarget
+                ? `On-time means within ${onTimeTarget.toFixed(1)} min (median + 5).`
+                : 'On-time target will appear once commute data exists.';
+
+            return {
+                headline: `Typical commute time: ${commuteMedian.toFixed(1)} min (p90: ${
+                    commuteP90 ? commuteP90.toFixed(1) : 'N/A'
+                } min).`,
+                details: [
+                    peakVsOffpeak,
+                    recommendation,
+                    bestWindowText,
+                    onTimeText,
+                    spikeText
+                ]
+            };
+        }
+
+        function bestCommuteWindow(rows) {
+            const buckets = {
+                morning: { label: '7-8 AM', start: 7, end: 8, values: [] },
+                midMorning: { label: '8-9 AM', start: 8, end: 9, values: [] },
+                afternoon: { label: '3-4 PM', start: 15, end: 16, values: [] },
+                lateAfternoon: { label: '4-5 PM', start: 16, end: 17, values: [] }
+            };
+
+            rows.forEach(row => {
+                const hour = row.timestamp.getHours();
+                for (const bucket of Object.values(buckets)) {
+                    if (hour >= bucket.start && hour < bucket.end) {
+                        bucket.values.push(row.duration);
+                    }
+                }
+            });
+
+            const scored = Object.values(buckets)
+                .map(bucket => ({
+                    label: bucket.label,
+                    median: calculateMedian(bucket.values),
+                    count: bucket.values.length
+                }))
+                .filter(bucket => bucket.median !== null && bucket.count >= 5)
+                .sort((a, b) => (a.median ?? Infinity) - (b.median ?? Infinity));
+
+            return scored.length ? scored[0] : null;
+        }
+
+        function chartTheme() {
+            return {
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: { family: 'Space Grotesk, sans-serif', size: 12, color: '#0f172a' },
+                hoverlabel: {
+                    bgcolor: '#0f172a',
+                    bordercolor: '#0f172a',
+                    font: { color: '#f8fafc', size: 12 }
+                },
+                margin: { l: 56, r: 20, t: 18, b: 44 },
+                height: 300
+            };
+        }
+
+        function chartConfig() {
+            return { responsive: true, displayModeBar: true };
+        }
+
+        async function loadRoute() {
+            try {
+                const response = await fetch(`/api/data/${routeInfo.csv_path}`);
+                const data = await response.json();
+
+                if (!data.length) {
+                    renderPlaceholder('chart-timeseries', 'No data available yet.');
+                    renderPlaceholder('chart-commute', 'No data available yet.');
+                    renderPlaceholder('chart-daily', 'No data available yet.');
+                    renderPlaceholder('chart-hourly', 'No data available yet.');
+                    renderPlaceholder('chart-weekday', 'No data available yet.');
+                    renderPlaceholder('chart-hist', 'No data available yet.');
+                    renderStats([
+                        { label: 'Average (min)', value: 'N/A' },
+                        { label: 'Total records', value: 0 }
+                    ]);
+                    renderCommuteExplain({
+                        headline: 'No commute window samples yet. Your commute insights will appear after a few runs.',
+                        details: [
+                            'We only evaluate 7-9 AM and 3-5 PM for this summary.',
+                            'Check back after the scraper runs during commute hours.'
+                        ]
+                    });
+                    renderCommuteAnalysis({
+                        headline: 'No commute-window samples yet to analyze impact.',
+                        details: [
+                            'We only evaluate 7-9 AM and 3-5 PM for this analysis.',
+                            'Check back after more commute-hour runs.'
+                        ]
+                    });
+                    return;
+                }
+
+                const allRows = data.map(row => {
+                    const duration = parseFloat(row.duration_minutes);
+                    const timestamp = parseCsvTimestamp(row.timestamp_local);
+                    return {
+                        duration: Number.isNaN(duration) ? null : duration,
+                        timestamp
+                    };
+                }).filter(row => row.timestamp)
+                    .sort((a, b) => a.timestamp - b.timestamp);
+
+                const totalRows = allRows.length;
+                const missingRows = allRows.filter(row => row.duration === null).length;
+                const parsed = allRows.filter(row => row.duration !== null);
+
+                if (!parsed.length) {
+                    const missingMsg = missingRows > 0
+                        ? `No valid duration data. ${missingRows} of ${totalRows} rows have missing durations — selectors may be broken.`
+                        : 'No valid data points.';
+                    renderPlaceholder('chart-timeseries', missingMsg);
+                    renderPlaceholder('chart-commute', missingMsg);
+                    renderPlaceholder('chart-daily', missingMsg);
+                    renderPlaceholder('chart-hourly', missingMsg);
+                    renderPlaceholder('chart-weekday', missingMsg);
+                    renderPlaceholder('chart-hist', missingMsg);
+                    const statsItems = [
+                        { label: 'Average (min)', value: 'N/A' },
+                        { label: 'Total records', value: totalRows }
+                    ];
+                    if (missingRows > 0) {
+                        statsItems.push({
+                            label: 'Missing durations',
+                            value: `${missingRows} / ${totalRows}`,
+                            note: 'Rows where the scraper could not extract a travel time. This usually means Google Maps changed their page layout.'
+                        });
+                    }
+                    renderStats(statsItems);
+                    renderCommuteExplain({
+                        headline: 'No commute window samples yet. Your commute insights will appear after a few runs.',
+                        details: [
+                            'We only evaluate 7-9 AM and 3-5 PM for this summary.',
+                            'Check back after the scraper runs during commute hours.'
+                        ]
+                    });
+                    renderCommuteAnalysis({
+                        headline: 'No commute-window samples yet to analyze impact.',
+                        details: [
+                            'We only evaluate 7-9 AM and 3-5 PM for this analysis.',
+                            'Check back after more commute-hour runs.'
+                        ]
+                    });
+                    return;
+                }
+
+                const durations = parsed.map(row => row.duration);
+                const latest = parsed[parsed.length - 1];
+                const first = parsed[0];
+                const average = calculateAverage(durations);
+                const median = calculateMedian(durations);
+                const p90 = calculatePercentile(durations, 90);
+                const p95 = calculatePercentile(durations, 95);
+                const iqr = calculateIqr(durations);
+                const min = Math.min(...durations);
+                const max = Math.max(...durations);
+
+                const morning = parsed.filter(row => {
+                    const hour = row.timestamp.getHours();
+                    return hour >= 7 && hour < 9;
+                }).map(row => row.duration);
+
+                const afternoon = parsed.filter(row => {
+                    const hour = row.timestamp.getHours();
+                    return hour >= 15 && hour < 17;
+                }).map(row => row.duration);
+
+                const morningAverage = calculateAverage(morning);
+                const afternoonAverage = calculateAverage(afternoon);
+
+                const commuteRows = parsed.filter(row => {
+                    const hour = row.timestamp.getHours();
+                    return (hour >= 7 && hour < 9) || (hour >= 15 && hour < 17);
+                });
+                const commuteValues = commuteRows.map(row => row.duration);
+                const hasCommute = commuteValues.length > 0;
+                const commuteMedian = calculateMedian(commuteValues);
+                const commuteP90 = calculatePercentile(commuteValues, 90);
+                const commuteP95 = calculatePercentile(commuteValues, 95);
+                const commuteIqr = calculateIqr(commuteValues);
+                const offpeakValues = parsed.filter(row => {
+                    const hour = row.timestamp.getHours();
+                    return hour < 7 || (hour >= 9 && hour < 15) || hour >= 17;
+                }).map(row => row.duration);
+
+                const spikeThreshold = calculatePercentile(commuteValues, 95);
+                const spikeTimestamps = spikeThreshold === null
+                    ? []
+                    : commuteRows.filter(row => row.duration >= spikeThreshold).map(row => row.timestamp);
+
+                const bestWindow = bestCommuteWindow(commuteRows);
+                const onTimeTarget = commuteMedian !== null ? commuteMedian + 5 : null;
+                const onTimeOverall = onTimeTarget !== null && commuteValues.length
+                    ? (commuteValues.filter(value => value <= onTimeTarget).length / commuteValues.length) * 100
+                    : null;
+
+                renderCommuteExplain(commuteSummary(morning, afternoon));
+                renderCommuteAnalysis(commuteAnalysis({
+                    commuteValues,
+                    morningValues: morning,
+                    afternoonValues: afternoon,
+                    offpeakValues,
+                    spikeTimestamps,
+                    bestWindow,
+                    onTimeTarget
+                }));
+
+                const statsCards = [
+                    {
+                        label: 'Average (min)',
+                        value: average ? average.toFixed(1) : 'N/A',
+                        note: 'Mean trip length across all samples.'
+                    },
+                    { label: 'Total records', value: parsed.length },
+                    { label: 'First seen', value: formatTimestamp(first.timestamp.toISOString()) },
+                    { label: 'Latest update', value: formatTimestamp(latest.timestamp.toISOString()) },
+                    {
+                        label: 'Median (min)',
+                        value: median ? median.toFixed(1) : 'N/A',
+                        note: 'Typical trip length across all samples. Half the trips are shorter and half are longer.'
+                    },
+                    {
+                        label: '90th percentile',
+                        value: p90 ? p90.toFixed(1) : 'N/A',
+                        note: 'A "bad-day" estimate. 90% of trips are at or faster than this time.'
+                    },
+                    {
+                        label: '95th percentile',
+                        value: p95 ? p95.toFixed(1) : 'N/A',
+                        note: 'A near worst-case estimate. Only 5% of trips are slower than this.'
+                    },
+                    {
+                        label: 'IQR (min)',
+                        value: iqr ? iqr.toFixed(1) : 'N/A',
+                        note: 'Variability for the middle 50% of trips. Smaller numbers mean more consistency.'
+                    },
+                    {
+                        label: 'Range (min)',
+                        value: `${min.toFixed(1)} - ${max.toFixed(1)}`,
+                        note: 'Absolute fastest and slowest trips recorded.'
+                    },
+                    {
+                        label: 'Morning median',
+                        value: morning.length ? calculateMedian(morning).toFixed(1) : 'N/A',
+                        note: 'Typical time for the 7-9 AM window.'
+                    },
+                    {
+                        label: 'Morning average',
+                        value: morningAverage ? morningAverage.toFixed(1) : 'N/A',
+                        note: 'Mean time for the 7-9 AM window.'
+                    },
+                    {
+                        label: 'Afternoon median',
+                        value: afternoon.length ? calculateMedian(afternoon).toFixed(1) : 'N/A',
+                        note: 'Typical time for the 3-5 PM window.'
+                    },
+                    {
+                        label: 'Afternoon average',
+                        value: afternoonAverage ? afternoonAverage.toFixed(1) : 'N/A',
+                        note: 'Mean time for the 3-5 PM window.'
+                    },
+                    {
+                        label: 'Commute P90',
+                        value: commuteP90 ? commuteP90.toFixed(1) : 'N/A',
+                        note: 'Bad-day estimate limited to commute windows only.'
+                    },
+                    {
+                        label: 'Commute P95',
+                        value: commuteP95 ? commuteP95.toFixed(1) : 'N/A',
+                        note: 'Near worst-case estimate for commute windows only.'
+                    },
+                    {
+                        label: 'Commute IQR',
+                        value: commuteIqr ? commuteIqr.toFixed(1) : 'N/A',
+                        note: 'Consistency of commute-window trips. Lower is steadier.'
+                    },
+                    {
+                        label: 'On-time rate',
+                        value: onTimeOverall !== null ? `${onTimeOverall.toFixed(0)}%` : 'N/A',
+                        note: 'Share of commute-window trips that finish within the on-time threshold (median + 5 minutes).'
+                    }
+                ];
+                if (missingRows > 0) {
+                    statsCards.push({
+                        label: 'Missing durations',
+                        value: `${missingRows} / ${totalRows}`,
+                        note: 'Rows where the scraper could not extract a travel time. This usually means Google Maps changed their page layout and selectors need updating.'
+                    });
+                }
+                renderStats(statsCards);
+
+                const downsampled = downsample(parsed, 1500);
+
+                const baseLayout = chartTheme();
+                const baseConfig = chartConfig();
+
+                Plotly.newPlot('chart-timeseries', [
+                    {
+                        x: downsampled.map(row => row.timestamp),
+                        y: downsampled.map(row => row.duration),
+                        type: 'scatter',
+                        mode: 'lines',
+                        line: { color: '#0f766e', width: 2 }
+                    }
+                ], {
+                    ...baseLayout,
+                    xaxis: { title: 'Date', automargin: true },
+                    yaxis: { title: 'Minutes', automargin: true },
+                    hovermode: 'x unified'
+                }, baseConfig);
+
+                if (!hasCommute) {
+                    renderPlaceholder('chart-commute', 'No commute-window samples yet.');
+                    renderPlaceholder('chart-daily', 'No commute-window samples yet.');
+                    renderPlaceholder('chart-hourly', 'No commute-window samples yet.');
+                    renderPlaceholder('chart-weekday', 'No commute-window samples yet.');
+                    renderPlaceholder('chart-hist', 'No commute-window samples yet.');
+                    return;
+                }
+
+                Plotly.newPlot('chart-commute', [
+                    {
+                        x: ['P50', 'P90', 'P95'],
+                        y: [
+                            morning.length ? calculateMedian(morning) : null,
+                            morning.length ? calculatePercentile(morning, 90) : null,
+                            morning.length ? calculatePercentile(morning, 95) : null
+                        ],
+                        name: '7-9 AM',
+                        type: 'bar',
+                        marker: { color: '#f59e0b' }
+                    },
+                    {
+                        x: ['P50', 'P90', 'P95'],
+                        y: [
+                            afternoon.length ? calculateMedian(afternoon) : null,
+                            afternoon.length ? calculatePercentile(afternoon, 90) : null,
+                            afternoon.length ? calculatePercentile(afternoon, 95) : null
+                        ],
+                        name: '3-5 PM',
+                        type: 'bar',
+                        marker: { color: '#8b5cf6' }
+                    }
+                ], {
+                    ...baseLayout,
+                    barmode: 'group',
+                    yaxis: { title: 'Minutes', automargin: true }
+                }, baseConfig);
+
+                const dailyMorning = buildCommuteDailyStats(parsed, 7, 9);
+                const dailyAfternoon = buildCommuteDailyStats(parsed, 15, 17);
+                Plotly.newPlot('chart-daily', [
+                    {
+                        x: dailyMorning.dates,
+                        y: dailyMorning.medians,
+                        name: '7-9 AM P50',
+                        type: 'scatter',
+                        mode: 'lines+markers',
+                        line: { color: '#f59e0b', width: 2 },
+                        marker: { size: 5 }
+                    },
+                    {
+                        x: dailyMorning.dates,
+                        y: dailyMorning.p90s,
+                        name: '7-9 AM P90',
+                        type: 'scatter',
+                        mode: 'lines',
+                        line: { color: '#f59e0b', width: 2, dash: 'dot' }
+                    },
+                    {
+                        x: dailyAfternoon.dates,
+                        y: dailyAfternoon.medians,
+                        name: '3-5 PM P50',
+                        type: 'scatter',
+                        mode: 'lines+markers',
+                        line: { color: '#8b5cf6', width: 2 },
+                        marker: { size: 5 }
+                    },
+                    {
+                        x: dailyAfternoon.dates,
+                        y: dailyAfternoon.p90s,
+                        name: '3-5 PM P90',
+                        type: 'scatter',
+                        mode: 'lines',
+                        line: { color: '#8b5cf6', width: 2, dash: 'dot' }
+                    }
+                ], {
+                    ...baseLayout,
+                    xaxis: { title: 'Day', automargin: true },
+                    yaxis: { title: 'Minutes', automargin: true },
+                    legend: { orientation: 'h', y: -0.2 }
+                }, baseConfig);
+
+                const hourly = buildCommuteHourlyMedians(parsed);
+                Plotly.newPlot('chart-hourly', [
+                    {
+                        x: hourly.labels,
+                        y: hourly.medians,
+                        type: 'bar',
+                        marker: { color: '#14b8a6' }
+                    }
+                ], {
+                    ...baseLayout,
+                    xaxis: { title: 'Hour', automargin: true },
+                    yaxis: { title: 'Median minutes', automargin: true }
+                }, baseConfig);
+
+                const weekday = buildCommuteWeekdayOnTime(parsed, onTimeTarget ?? 0);
+                Plotly.newPlot('chart-weekday', [
+                    {
+                        x: weekday.labels,
+                        y: weekday.rates,
+                        type: 'bar',
+                        marker: { color: '#f97316' }
+                    }
+                ], {
+                    ...baseLayout,
+                    xaxis: { title: 'Weekday', automargin: true },
+                    yaxis: { title: 'On-time %', automargin: true, rangemode: 'tozero' }
+                }, baseConfig);
+
+                Plotly.newPlot('chart-hist', [
+                    {
+                        y: morning,
+                        name: '7-9 AM',
+                        type: 'box',
+                        boxpoints: false,
+                        marker: { color: '#f59e0b' }
+                    },
+                    {
+                        y: afternoon,
+                        name: '3-5 PM',
+                        type: 'box',
+                        boxpoints: false,
+                        marker: { color: '#8b5cf6' }
+                    }
+                ], {
+                    ...baseLayout,
+                    yaxis: { title: 'Minutes', automargin: true }
+                }, baseConfig);
+            } catch (error) {
+                renderPlaceholder('chart-timeseries', `Error loading data: ${error.message}`);
+                renderPlaceholder('chart-commute', `Error loading data: ${error.message}`);
+                renderPlaceholder('chart-daily', `Error loading data: ${error.message}`);
+                renderPlaceholder('chart-hourly', `Error loading data: ${error.message}`);
+                renderPlaceholder('chart-weekday', `Error loading data: ${error.message}`);
+                renderPlaceholder('chart-hist', `Error loading data: ${error.message}`);
+                renderStats([
+                    { label: 'Error', value: error.message }
+                ]);
+                renderCommuteExplain({
+                    headline: 'Unable to load commute summary.',
+                    details: ['Check the logs for more detail.']
+                });
+                renderCommuteAnalysis({
+                    headline: 'Unable to load commute analysis.',
+                    details: ['Check the logs for more detail.']
+                });
+            }
+        }
+
+        loadRoute();
+
+        /* ═══════════════════════════════════════════
+           CSV Editor
+           ═══════════════════════════════════════════ */
+        (function csvEditor() {
+            const PAGE_SIZE = 100;
+            let allHeaders = [];
+            let allRows = [];       // master data (array of plain objects)
+            let filtered = [];      // indices into allRows after search
+            let dirty = new Set();  // indices that were edited
+            let selected = new Set();
+            let page = 0;
+            let loaded = false;
+
+            const wrapEl   = document.getElementById('csv-table-wrap');
+            const searchEl = document.getElementById('csv-search');
+            const saveBtn  = document.getElementById('csv-save-btn');
+            const delBtn   = document.getElementById('csv-delete-btn');
+            const statusEl = document.getElementById('csv-status-text');
+            const pageLabel = document.getElementById('csv-page-label');
+            const prevBtn  = document.getElementById('csv-prev');
+            const nextBtn  = document.getElementById('csv-next');
+            const details  = document.getElementById('csv-details');
+
+            // Lazy-load: fetch data only when the section is opened.
+            details.addEventListener('toggle', () => {
+                if (details.open && !loaded) loadCsvData();
+            });
+
+            async function loadCsvData() {
+                try {
+                    const res = await fetch(`/api/csv/raw/${routeInfo.csv_path}`);
+                    const json = await res.json();
+                    allHeaders = json.headers || [];
+                    allRows = json.rows || [];
+                    filtered = allRows.map((_, i) => i);
+                    loaded = true;
+                    dirty.clear();
+                    selected.clear();
+                    page = Math.max(0, Math.ceil(filtered.length / PAGE_SIZE) - 1); // start at last page (newest)
+                    render();
+                    statusEl.textContent = `${allRows.length} rows loaded`;
+                } catch (e) {
+                    wrapEl.innerHTML = `<p style="padding:1rem;color:#dc2626">Failed to load CSV: ${e.message}</p>`;
+                }
+            }
+
+            function applyFilter() {
+                const q = (searchEl.value || '').toLowerCase().trim();
+                if (!q) {
+                    filtered = allRows.map((_, i) => i);
+                } else {
+                    filtered = [];
+                    for (let i = 0; i < allRows.length; i++) {
+                        const row = allRows[i];
+                        const match = allHeaders.some(h => (row[h] || '').toLowerCase().includes(q));
+                        if (match) filtered.push(i);
+                    }
+                }
+                page = Math.max(0, Math.ceil(filtered.length / PAGE_SIZE) - 1);
+                render();
+            }
+            searchEl.addEventListener('input', applyFilter);
+
+            function totalPages() { return Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)); }
+
+            function render() {
+                const tp = totalPages();
+                if (page >= tp) page = tp - 1;
+                if (page < 0) page = 0;
+
+                const start = page * PAGE_SIZE;
+                const slice = filtered.slice(start, start + PAGE_SIZE);
+
+                let html = '<table class="csv-table"><thead><tr>';
+                html += '<th style="width:2.2rem"><input type="checkbox" id="csv-select-all"></th>';
+                html += '<th>#</th>';
+                for (const h of allHeaders) html += `<th>${esc(h)}</th>`;
+                html += '</tr></thead><tbody>';
+
+                for (const idx of slice) {
+                    const row = allRows[idx];
+                    const isDirty = dirty.has(idx);
+                    const isSel = selected.has(idx);
+                    const cls = [isDirty ? 'csv-row--dirty' : '', isSel ? 'csv-row--selected' : ''].join(' ');
+                    html += `<tr class="${cls}" data-idx="${idx}">`;
+                    html += `<td><input type="checkbox" class="csv-sel" data-idx="${idx}" ${isSel ? 'checked' : ''}></td>`;
+                    html += `<td style="color:var(--muted)">${idx}</td>`;
+                    for (const h of allHeaders) {
+                        const val = row[h] ?? '';
+                        const emptyCls = val === '' ? ' csv-cell--empty' : '';
+                        html += `<td contenteditable="true" class="csv-cell${emptyCls}" data-idx="${idx}" data-col="${esc(h)}">${esc(val) || '—'}</td>`;
+                    }
+                    html += '</tr>';
+                }
+                html += '</tbody></table>';
+                wrapEl.innerHTML = html;
+
+                // Pagination
+                pageLabel.textContent = `Page ${page + 1} / ${tp}`;
+                prevBtn.disabled = page === 0;
+                nextBtn.disabled = page >= tp - 1;
+
+                // Wire select-all
+                const selAll = document.getElementById('csv-select-all');
+                if (selAll) {
+                    selAll.checked = slice.length > 0 && slice.every(i => selected.has(i));
+                    selAll.addEventListener('change', () => {
+                        for (const i of slice) {
+                            if (selAll.checked) selected.add(i); else selected.delete(i);
+                        }
+                        updateButtons();
+                        render();
+                    });
+                }
+
+                // Wire individual checkboxes
+                wrapEl.querySelectorAll('.csv-sel').forEach(cb => {
+                    cb.addEventListener('change', () => {
+                        const i = Number(cb.dataset.idx);
+                        if (cb.checked) selected.add(i); else selected.delete(i);
+                        updateButtons();
+                        render();
+                    });
+                });
+
+                // Wire contenteditable cells
+                wrapEl.querySelectorAll('.csv-cell').forEach(td => {
+                    td.addEventListener('blur', () => {
+                        const i = Number(td.dataset.idx);
+                        const col = td.dataset.col;
+                        let newVal = td.textContent.trim();
+                        if (newVal === '—') newVal = '';
+                        if (allRows[i][col] !== newVal) {
+                            allRows[i][col] = newVal;
+                            dirty.add(i);
+                            updateButtons();
+                            td.closest('tr').classList.add('csv-row--dirty');
+                        }
+                    });
+                    td.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') { e.preventDefault(); td.blur(); }
+                        if (e.key === 'Escape') {
+                            const i = Number(td.dataset.idx);
+                            td.textContent = allRows[i][td.dataset.col] || '—';
+                            td.blur();
+                        }
+                    });
+                });
+
+                updateButtons();
+            }
+
+            function updateButtons() {
+                saveBtn.disabled = dirty.size === 0;
+                delBtn.disabled = selected.size === 0;
+                delBtn.textContent = selected.size ? `Delete selected (${selected.size})` : 'Delete selected';
+            }
+
+            prevBtn.addEventListener('click', () => { page--; render(); });
+            nextBtn.addEventListener('click', () => { page++; render(); });
+
+            // Save
+            saveBtn.addEventListener('click', async () => {
+                saveBtn.disabled = true;
+                saveBtn.textContent = 'Saving…';
+                try {
+                    const res = await fetch(`/api/csv/save/${routeInfo.csv_path}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ headers: allHeaders, rows: allRows })
+                    });
+                    const json = await res.json();
+                    if (!res.ok) throw new Error(json.error || 'Save failed');
+                    dirty.clear();
+                    render();
+                    statusEl.textContent = `Saved ${json.rows_written} rows (backup: ${json.backup})`;
+                } catch (e) {
+                    statusEl.textContent = `Save failed: ${e.message}`;
+                } finally {
+                    saveBtn.textContent = 'Save changes';
+                    updateButtons();
+                }
+            });
+
+            // Delete
+            delBtn.addEventListener('click', async () => {
+                const count = selected.size;
+                if (!confirm(`Delete ${count} row(s)? A backup will be created.`)) return;
+                delBtn.disabled = true;
+                delBtn.textContent = 'Deleting…';
+                try {
+                    const res = await fetch(`/api/csv/delete-rows/${routeInfo.csv_path}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ indices: [...selected] })
+                    });
+                    const json = await res.json();
+                    if (!res.ok) throw new Error(json.error || 'Delete failed');
+                    // Reload fresh data
+                    loaded = false;
+                    await loadCsvData();
+                    statusEl.textContent = `Deleted ${json.deleted} rows (${json.remaining} remaining)`;
+                } catch (e) {
+                    statusEl.textContent = `Delete failed: ${e.message}`;
+                } finally {
+                    delBtn.textContent = 'Delete selected';
+                    updateButtons();
+                }
+            });
+
+            // Clear rows with no duration recorded
+            const clearEmptyBtn = document.getElementById('csv-clear-empty-btn');
+            clearEmptyBtn.addEventListener('click', async () => {
+                const emptyIndices = [];
+                for (let i = 0; i < allRows.length; i++) {
+                    const val = (allRows[i]['duration_minutes'] ?? '').toString().trim();
+                    if (val === '' || val === '—') emptyIndices.push(i);
+                }
+                if (emptyIndices.length === 0) {
+                    statusEl.textContent = 'No rows with empty duration found.';
+                    return;
+                }
+                if (!confirm(`Delete ${emptyIndices.length} row(s) with no duration? A backup will be created.`)) return;
+                clearEmptyBtn.disabled = true;
+                clearEmptyBtn.textContent = 'Clearing…';
+                try {
+                    const res = await fetch(`/api/csv/delete-rows/${routeInfo.csv_path}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ indices: emptyIndices })
+                    });
+                    const json = await res.json();
+                    if (!res.ok) throw new Error(json.error || 'Delete failed');
+                    loaded = false;
+                    await loadCsvData();
+                    statusEl.textContent = `Cleared ${json.deleted} empty-duration rows (${json.remaining} remaining)`;
+                } catch (e) {
+                    statusEl.textContent = `Clear failed: ${e.message}`;
+                } finally {
+                    clearEmptyBtn.textContent = 'Clear empty durations';
+                    clearEmptyBtn.disabled = false;
+                }
+            });
+
+            function esc(s) {
+                const d = document.createElement('div');
+                d.textContent = String(s);
+                return d.innerHTML;
+            }
+        })();
+    </script>
+</body>
+</html>
